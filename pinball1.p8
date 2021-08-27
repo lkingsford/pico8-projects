@@ -1,8 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 32
 __lua__
---PINBALL1
---By Lachlan Kingsford
+--pinball1
+--BY lachlan kingsford
 function _init()
 	pinballs={}
 
@@ -15,11 +15,12 @@ function _init()
 	add(pinballs, p)
 
 	flippers={}
-	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, .075)
-	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, .075)
+	add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.045)
+	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.045)
+	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.045)
+	add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.045)
 
-	flipper_thud = 0.9
-	ramp_thud = 0.7
+	flipper_thud = 0.6
 	gravity = 0.1
 
     show_debug = true
