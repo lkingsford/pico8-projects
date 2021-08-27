@@ -7,7 +7,7 @@ function _init()
 	local p={}
 	p.x=50
 	p.dx=0
-	p.y=90
+	p.y=80
 	p.r=4
 	p.dy=1
 	add(pinballs, p)
@@ -72,11 +72,12 @@ function _draw()
 		print(normal, 1, 1, 11)
 		print(incident, 1, 9, 9)
 		print(reflection, 1, 17, 10)
+		print(d_distance, 64, 17, 10)
 	end
 end
 
 function d_pinball(pb)
-	spr(1, pb.x, pb.y)
+	spr(1, pb.x - pb.r, pb.y - pb.r)
 end
 
 function d_interact(i)
@@ -117,9 +118,9 @@ function u_pinball(pb)
 	-- Use as arg in foreach
 	cur_pb = pb
 	foreach(interactions, interact)
-	foreach(fixed_interactions, interact)
+	--foreach(fixed_interactions, interact)
 
-	pb.dy += gravity
+	pb.dy = 0.3 --+= gravity
 end
 
 function interact(i)
@@ -136,8 +137,10 @@ function interact(i)
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
 	v = vold * i.absorb + i.push
 	-- Roll back last move
-	cur_pb.x -= cur_pb.dx
-	cur_pb.y -= cur_pb.dy
+	while line_circle_collision(i.x1, i.y1, i.x2, i.y2, cur_pb.x, cur_pb.y, cur_pb.r) do
+        cur_pb.x -= cur_pb.dx
+        cur_pb.y -= cur_pb.dy
+    end
 	-- Adjust for bounce
 	cur_pb.dx = v * sin(reflection)
 	cur_pb.dy = v * cos(reflection)
@@ -159,7 +162,6 @@ function interact(i)
 	i_ref.y1 = cur_pb.y
 	i_ref.x2 = cur_pb.x + d_scale * vold * sin(incident)
 	i_ref.y2 = cur_pb.y + d_scale * vold * cos(incident)
-	
 end
 
 function u_flipper(f)
@@ -189,21 +191,25 @@ function add_interaction(x1, y1, x2, y2, absorb, push, table)
 end
 
 function line_circle_collision(x1, y1, x2, y2, cx, cy, r)
-	-- See http://devmag.org.za/2009/04/17/basic-collision-detection-in-2d-part-2/
-	-- The p value is due to integer overflows
-	p = 10
-	r = r/p
-	lx1 = (x1 - cx)/p
-	ly1 = (y1 - cy)/p
-	lx2 = (x2 - cx)/p
-	ly2 = (y2 - cy)/p
-	lx = lx1 - lx2
-	ly = ly1 - ly2
-	a = lx * lx + ly * ly
-	b = 2 * ((lx * lx1) + (ly * ly1))
-	c = lx1 * lx1 + ly1 * ly1 - (r * r)
-	d = b * b - (4 * a * c)
-	return d >= 0
+	-- Hopefully this loop is fast enough.
+	-- p picks the amount of segments to test
+	length = distance(x1, y1, x2, y2)
+	theta = atan2(x2-x1, y2-y1)
+	d_distance = 1000
+    printh("------", "collide")
+    printh("Line "..x1..","..y1..'-'..x2..','..y2, "collide")
+    printh("th ".. theta, "collide")
+    printh("le ".. length, "collide")
+	for i = 0, ceil(length) do
+		ix = x1 + i * sin(theta)
+		iy = y1 + i * cos(theta)
+        dist = distance(ix, iy, cx, cy)
+		d_distance = min(dist, d_distance)
+		if d_distance <= r then return true end
+        printh(i..":"..(ix) .. " " .. (iy) .. " " .. (cx) .. " " .. (cy), "collide")
+        printh(dist .. " " .. (d_distance), "collide")
+	end
+	return false
 end
 
 __gfx__
