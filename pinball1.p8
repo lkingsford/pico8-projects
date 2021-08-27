@@ -8,10 +8,10 @@ function _init()
 
 	local p={}
 	p.x=50
-	p.dx=0
+	p.dx=3
 	p.y=30
 	p.r=4
-	p.dy=1
+	p.dy=2
 	add(pinballs, p)
 
 	flippers={}
@@ -22,11 +22,12 @@ function _init()
 
 	flipper_thud = 0.6
 	gravity = 0.1
-	ramp_thud = 0.4
+	ramp_thud = 1
 
-    show_debug = true
+	show_debug = true
 
 	add_fixed_interactions()
+
 end
 
 function add_flipper(button, x, y, r1, r2, length, angle1, angle2, speed)
@@ -46,10 +47,35 @@ end
 
 function add_fixed_interactions()
 	fixed_interactions = {}
-	add_interaction(0,0,127,0,ramp_thud,0,fixed_interactions)
-	add_interaction(0,0,0,127,ramp_thud,0,fixed_interactions)
-	add_interaction(127,0,127,127,ramp_thud,0,fixed_interactions)
-	add_interaction(0,127,127,127,ramp_thud,0,fixed_interactions)
+	r_int(0,-8,127,0, 0, ramp_thud,0,fixed_interactions)
+	r_int(-8,127,132,132, 0.5, ramp_thud,0,fixed_interactions)
+	r_int(-7,0,0,127, 0.75, ramp_thud,0,fixed_interactions)
+	r_int(127,-8,132,132, 0.25, ramp_thud,0,fixed_interactions)
+end
+
+function r_int(x1, y1, x2, y2, normal, absorb, bounce, table)
+	v = {}
+	v.x1 = x1 - 2
+	v.y1 = y1 - 2
+	v.x2 = x2 + 2
+	v.y2 = y2 + 2
+	v.x3 = x1 - 2
+	v.y3 = y2 + 2
+	v.normal = normal
+	v.absorb = absorb
+	v.bounce = bounce
+	add(table, v)
+	v = {}
+	v.x1 = x1
+	v.y1 = y1
+	v.x2 = x2
+	v.y2 = y2
+	v.x3 = x2
+	v.y3 = y1
+	v.normal = normal
+	v.absorb = absorb
+	v.bounce = bounce
+	add(table, v)
 end
 
 function distance(x1, y1, x2, y2)
@@ -94,7 +120,9 @@ function d_pinball(pb)
 end
 
 function d_interact(i)
-	line(i.x1, i.y1, i.x2, i.y2, 7)
+	line(i.x1, i.y1, i.x2, i.y2, 2)
+	line(i.x1, i.y1, i.x3, i.y3, 2)
+	line(i.x2, i.y2, i.x3, i.y3, 2)
 end
 
 function d_flipper(flipper)
@@ -113,8 +141,6 @@ function _update()
 	if btnp(4, 1) then
 		show_debug = not show_debug
 	end
-	-- We're doing interactions on screen memory
-	cls()
 	interactions = {}
 	foreach(flippers, u_flipper)
 
@@ -132,60 +158,45 @@ function u_pinball(pb)
 	pb.y = new_y
 	-- Use as arg in foreach
 	cur_pb = pb
-    any_bump =false
-	foreach(interactions, interact)
+	any_bump =false
+	--foreach(interactions, interact)
 	foreach(fixed_interactions, interact)
 
 	pb.dy += gravity
 end
 
 function interact(i)
-	-- PSEUDOCODE
-	-- Check if path line and interaction line intersect
-	-- If not, do nothing
-	-- If so, reflect ball, possibly adding or absorbing
-    if any_bump then
-        return
-    end
-	local collides = line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb)
-	if not collides then
+	if not collides(i, cur_pb) then
 		return
 	end
-    any_bump = true
-	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
-	normal = ((atan2(i.x1-i.x2, i.y1-i.y2) * -1) + .5) %1
-	inv_normal = (normal - 0.5) % 1
-	if (abs(normal - incident) > abs(inv_normal - incident)) then
-		normal = inv_normal
-	end
-	reflection = normal * 2 - incident
-	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
-	v = vold * i.absorb + i.push
-	while line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb) do
-        cur_pb.x -= cur_pb.dx / 5
-        cur_pb.y -= cur_pb.dy / 5
-    end
-	-- Adjust for bounce
-	cur_pb.dx = v * sin(reflection)
-	cur_pb.dy = v * cos(reflection)
-
-	-- All for debug image
-	d_scale = 5
-	r_ref = {}
-	r_ref.x1 = cur_pb.x
-	r_ref.y1 = cur_pb.y
-	r_ref.x2 = cur_pb.x + d_scale * v * sin(reflection)
-	r_ref.y2 = cur_pb.y + d_scale * v * cos(reflection)
+	normal = i.normal
 	n_ref = {}
 	n_ref.x1 = cur_pb.x
 	n_ref.y1 = cur_pb.y
-	n_ref.x2 = cur_pb.x + 10 * sin(normal)
-	n_ref.y2 = cur_pb.y + 10 * cos(normal)
+	n_ref.x2 = cur_pb.x + sin(normal) * 5
+	n_ref.y2 = cur_pb.y + cos(normal) * 5
+	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
 	i_ref = {}
 	i_ref.x1 = cur_pb.x
 	i_ref.y1 = cur_pb.y
-	i_ref.x2 = cur_pb.x + d_scale * vold * sin(incident)
-	i_ref.y2 = cur_pb.y + d_scale * vold * cos(incident)
+	i_ref.x2 = cur_pb.x + sin(incident) * 5
+	i_ref.y2 = cur_pb.y + cos(incident) * 5
+	reflection = normal * 2 - incident
+	r_ref = {}
+	r_ref.x1 = cur_pb.x
+	r_ref.y1 = cur_pb.y
+	r_ref.x2 = cur_pb.x + sin(reflection) * 5
+	r_ref.y2 = cur_pb.y + cos(reflection) * 5
+	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
+	v = vold * i.absorb + i.bounce
+	cur_pb.dx = v * sin(reflection)
+	cur_pb.dy = v * cos(reflection)
+	while collides(i, cur_pb) do
+  		cur_pb.x += cur_pb.dx / 5
+		cur_pb.y += cur_pb.dy / 5
+	end
+
+	-- Adjust for bounce
 end
 
 function u_flipper(f)
@@ -197,59 +208,32 @@ function u_flipper(f)
 	end
 	local old_angle = f.angle
 	f.angle = mid(f.angle, t, f.angle + sgn(t - f.angle) * f.speed)
-
-	-- Speed is wrong here - it should be angle * length (?)
-	for theta = min(old_angle, f.angle), max(old_angle, f.angle), 0.01 do
-		add_interaction(f.x, f.y - f.r1, f.x + f.length * sin(theta), f.y + f.length * cos(theta) - f.r2, flipper_thud, 0)
-	end
-end
-
-function add_interaction(x1, y1, x2, y2, absorb, push, table)
-	table = table or interactions
-	-- Add a line interaction with power d
-	local i = {}
-	i.x1 = x1
-	i.x2 = x2
-	i.y1 = y1
-	i.y2 = y2
-	i.absorb = absorb
-	i.push = push
-	add(table, i)
-end
-
-function line_ball_collision(x1, y1, x2, y2, ball)
-    rectfill(x1,y1,x2,y2,1)
-    line(x1, y1, x2, y2,10)
-	local d = ceil(distance(0, 0, ball.dx, ball.dy))
-	for i=0,d do
-		ball_x = ball.x - i*ball.dx/d
-		ball_y = ball.y - i*ball.dy/d
-		for x=0,7 do
-			for y=0,7 do
-				if sget(x+8,y) != 0 and pget(ball_x+x-4, ball_y+y-4)==10 then
-					-- SIDE EFFECT!?
-					local v = {}
-					v.x = ball_x
-					v.y = ball_y
-					return v
-				end
-			end
-		end
-	end
-	return false
 end
 
 function in_tri(ax,ay,bx,by,cx,cy,px,py)
-	cls()
-	line(ax, ay, bx, by, 3)
-	line(bx, by, cx, cy, 3)
-	line(ax, ay, cx, cy, 3)
-	circ(px, py, 2, 2)
 	apab = cross(ax,ay,px,py,ax,ay,bx,by)
 	bpbc = cross(bx,by,px,py,bx,by,cx,cy)
 	cpca = cross(cx,cy,px,py,cx,cy,ax,ay)
-	print(apab..' '..bpbc..' '..cpca)
-	return sgn(apab) == sgn(bpbc) and sgn(bpbc) == sgn(cpca)
+	--printh('('..px..','..py..') '..apab..','..bpbc..','..cpca)
+	if sgn(apab) == sgn(bpbc) and sgn(bpbc) == sgn(cpca) then return true end
+	if ((apab == 0 and sgn(bpbc) == sgn(cpca)) or (bpbc == 0 and sgn(apab) == sgn(cpca)) or (cpca == 0 and sgn(apab) == sgn(bpbc))) then return true end
+	if ((apab == 0 and bpbc == 0) or (apab == 0 and cpca == 0) or (bpbc == 0 and cpca == 0)) then return true end
+	return false
+end
+
+function collides(i, ball)
+	--l = 0
+	local d = ceil(distance(0, 0, ball.dx, ball.dy)) * 2
+	for j=0,d do
+		ball_x = ball.x - j*ball.dx/d
+		ball_y = ball.y - j*ball.dy/d
+		--l += 1
+		if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
+			--printh(l)
+			return true
+		end
+	end
+	return false
 end
 
 function cross(qx,qy,rx,ry,sx,sy,tx,ty)
