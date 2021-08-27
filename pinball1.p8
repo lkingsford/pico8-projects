@@ -22,7 +22,7 @@ function _init()
 
 	flipper_thud = 0.6
 	gravity = 0.1
-	ramp_thud = 1
+	ramp_thud = 1.1
 
 	show_debug = true
 
@@ -48,9 +48,9 @@ end
 function add_fixed_interactions()
 	fixed_interactions = {}
 	r_int(0,-8,127,0, 0, ramp_thud,0,fixed_interactions)
-	r_int(-8,127,132,132, 0.5, ramp_thud,0,fixed_interactions)
+	r_int(0,127,127,132, 0.5, ramp_thud,0,fixed_interactions)
 	r_int(-7,0,0,127, 0.75, ramp_thud,0,fixed_interactions)
-	r_int(127,-8,132,132, 0.25, ramp_thud,0,fixed_interactions)
+	r_int(127,0,132,127, 0.25, ramp_thud,0,fixed_interactions)
 end
 
 function r_int(x1, y1, x2, y2, normal, absorb, bounce, table)
@@ -191,9 +191,11 @@ function interact(i)
 	v = vold * i.absorb + i.bounce
 	cur_pb.dx = v * sin(reflection)
 	cur_pb.dy = v * cos(reflection)
+	norm_x = sin(normal)
+	norm_y = cos(normal)
 	while collides(i, cur_pb) do
-  		cur_pb.x += cur_pb.dx / 5
-		cur_pb.y += cur_pb.dy / 5
+  		cur_pb.x += norm_x
+		cur_pb.y += norm_y
 	end
 
 	-- Adjust for bounce
@@ -211,6 +213,15 @@ function u_flipper(f)
 end
 
 function in_tri(ax,ay,bx,by,cx,cy,px,py)
+	pr = 1
+	ax = ax / pr
+	ay = ay / pr
+	bx = bx / pr
+	by = by / pr
+	cx = cx / pr
+	cy = cy / pr
+	px = px / pr
+	py = py / pr
 	apab = cross(ax,ay,px,py,ax,ay,bx,by)
 	bpbc = cross(bx,by,px,py,bx,by,cx,cy)
 	cpca = cross(cx,cy,px,py,cx,cy,ax,ay)
@@ -229,7 +240,7 @@ function collides(i, ball)
 		ball_y = ball.y - j*ball.dy/d
 		--l += 1
 		if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
-			--printh(l)
+			--printh('^^ hit')
 			return true
 		end
 	end
