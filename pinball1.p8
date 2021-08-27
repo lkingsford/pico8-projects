@@ -22,6 +22,7 @@ function _init()
 
 	flipper_thud = 0.6
 	gravity = 0.1
+	ramp_thud = 0.4
 
     show_debug = true
 
@@ -236,6 +237,23 @@ function line_ball_collision(x1, y1, x2, y2, ball)
 		end
 	end
 	return false
+end
+
+function in_tri(ax,ay,bx,by,cx,cy,px,py)
+	cls()
+	line(ax, ay, bx, by, 3)
+	line(bx, by, cx, cy, 3)
+	line(ax, ay, cx, cy, 3)
+	circ(px, py, 2, 2)
+	apab = cross(ax,ay,px,py,ax,ay,bx,by)
+	bpbc = cross(bx,by,px,py,bx,by,cx,cy)
+	cpca = cross(cx,cy,px,py,cx,cy,ax,ay)
+	print(apab..' '..bpbc..' '..cpca)
+	return sgn(apab) == sgn(bpbc) and sgn(bpbc) == sgn(cpca)
+end
+
+function cross(qx,qy,rx,ry,sx,sy,tx,ty)
+	return (rx-qx)*(ty-sy)-(tx-sx)*(ry-qy)
 end
 
 __gfx__
