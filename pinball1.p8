@@ -1,24 +1,28 @@
 pico-8 cartridge // http://www.pico-8.com
 version 32
 __lua__
+--PINBALL1
+--By Lachlan Kingsford
 function _init()
 	pinballs={}
 
 	local p={}
 	p.x=50
 	p.dx=0
-	p.y=80
+	p.y=30
 	p.r=4
 	p.dy=1
 	add(pinballs, p)
 
 	flippers={}
-	--add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, .075)
+	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, .075)
 	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, .075)
 
-	flipper_thud = 0.7
+	flipper_thud = 0.9
 	ramp_thud = 0.7
 	gravity = 0.1
+
+    show_debug = true
 
 	add_fixed_interactions()
 end
@@ -72,12 +76,19 @@ function _draw()
 		print(normal, 1, 1, 11)
 		print(incident, 1, 9, 9)
 		print(reflection, 1, 17, 10)
-		print(d_distance, 64, 17, 10)
+		print(v, 1, 25, 10)
+		if normal then
+			--stop()
+		end
 	end
 end
 
 function d_pinball(pb)
 	spr(1, pb.x - pb.r, pb.y - pb.r)
+	if show_debug then
+		print(pb.dx, 90, 1, 11)
+		print(pb.dy, 90, 9, 11)
+	end
 end
 
 function d_interact(i)
@@ -100,6 +111,8 @@ function _update()
 	if btnp(4, 1) then
 		show_debug = not show_debug
 	end
+	-- We're doing interactions on screen memory
+	cls()
 	interactions = {}
 	foreach(flippers, u_flipper)
 
@@ -117,10 +130,11 @@ function u_pinball(pb)
 	pb.y = new_y
 	-- Use as arg in foreach
 	cur_pb = pb
+    any_bump =false
 	foreach(interactions, interact)
-	--foreach(fixed_interactions, interact)
+	foreach(fixed_interactions, interact)
 
-	pb.dy = 0.3 --+= gravity
+	pb.dy += gravity
 end
 
 function interact(i)
@@ -128,30 +142,33 @@ function interact(i)
 	-- Check if path line and interaction line intersect
 	-- If not, do nothing
 	-- If so, reflect ball, possibly adding or absorbing
-	if not line_circle_collision(i.x1, i.y1, i.x2, i.y2, cur_pb.x, cur_pb.y, cur_pb.r) then
+    if any_bump then
+        return
+    end
+	if not line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb) then
 		return
 	end
-	normal = (atan2(i.x2-i.x1, i.y2-i.y1) - .25) % 1
-	incident = atan2(cur_pb.dx, cur_pb.dy) - .25
+    any_bump = true
+	normal = ((atan2(i.x1-i.x2, i.y1-i.y2) * -1) + .5) %1
+	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
 	reflection = normal * 2 - incident
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
 	v = vold * i.absorb + i.push
-	-- Roll back last move
-	while line_circle_collision(i.x1, i.y1, i.x2, i.y2, cur_pb.x, cur_pb.y, cur_pb.r) do
-        cur_pb.x -= cur_pb.dx
-        cur_pb.y -= cur_pb.dy
+	while line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb) do
+        cur_pb.x -= cur_pb.dx / 5
+        cur_pb.y -= cur_pb.dy / 5
     end
 	-- Adjust for bounce
 	cur_pb.dx = v * sin(reflection)
 	cur_pb.dy = v * cos(reflection)
 
 	-- All for debug image
-	d_scale = 4
+	d_scale = 5
 	r_ref = {}
 	r_ref.x1 = cur_pb.x
 	r_ref.y1 = cur_pb.y
-	r_ref.x2 = cur_pb.x + v * sin(reflection)
-	r_ref.y2 = cur_pb.y + v * cos(reflection)
+	r_ref.x2 = cur_pb.x + d_scale * v * sin(reflection)
+	r_ref.y2 = cur_pb.y + d_scale * v * cos(reflection)
 	n_ref = {}
 	n_ref.x1 = cur_pb.x
 	n_ref.y1 = cur_pb.y
@@ -174,7 +191,7 @@ function u_flipper(f)
 	f.angle = mid(f.angle, t, f.angle + sgn(t - f.angle) * f.speed)
 
 	-- Speed is wrong here - it should be angle * length (?)
-	add_interaction(f.x, f.y - f.r1, f.x + f.length * sin(f.angle), f.y + f.length * cos(f.angle) - f.r2, flipper_thud, f.speed)
+	add_interaction(f.x, f.y - f.r1, f.x + f.length * sin(f.angle), f.y + f.length * cos(f.angle) - f.r2, flipper_thud, 0)
 end
 
 function add_interaction(x1, y1, x2, y2, absorb, push, table)
@@ -190,25 +207,16 @@ function add_interaction(x1, y1, x2, y2, absorb, push, table)
 	add(table, i)
 end
 
-function line_circle_collision(x1, y1, x2, y2, cx, cy, r)
-	-- Hopefully this loop is fast enough.
-	-- p picks the amount of segments to test
-	length = distance(x1, y1, x2, y2)
-	theta = atan2(x2-x1, y2-y1)
-	d_distance = 1000
-    printh("------", "collide")
-    printh("Line "..x1..","..y1..'-'..x2..','..y2, "collide")
-    printh("th ".. theta, "collide")
-    printh("le ".. length, "collide")
-	for i = 0, ceil(length) do
-		ix = x1 + i * sin(theta)
-		iy = y1 + i * cos(theta)
-        dist = distance(ix, iy, cx, cy)
-		d_distance = min(dist, d_distance)
-		if d_distance <= r then return true end
-        printh(i..":"..(ix) .. " " .. (iy) .. " " .. (cx) .. " " .. (cy), "collide")
-        printh(dist .. " " .. (d_distance), "collide")
-	end
+function line_ball_collision(x1, y1, x2, y2, ball)
+    rectfill(x1,y1,x2,y2,1)
+    line(x1, y1, x2, y2,10)
+    for x=0,7 do
+        for y=0,7 do
+            if sget(x+8,y) != 0 and pget(ball.x+x-4, ball.y+y-4)==10 then
+                return true
+            end
+        end
+    end
 	return false
 end
 
