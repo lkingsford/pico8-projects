@@ -145,12 +145,17 @@ function interact(i)
     if any_bump then
         return
     end
-	if not line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb) then
+	local collides = line_ball_collision(i.x1, i.y1, i.x2, i.y2, cur_pb)
+	if not collides then
 		return
 	end
     any_bump = true
-	normal = ((atan2(i.x1-i.x2, i.y1-i.y2) * -1) + .5) %1
 	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
+	normal = ((atan2(i.x1-i.x2, i.y1-i.y2) * -1) + .5) %1
+	inv_normal = (normal - 0.5) % 1
+	if (abs(normal - incident) > abs(inv_normal - incident)) then
+		normal = inv_normal
+	end
 	reflection = normal * 2 - incident
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
 	v = vold * i.absorb + i.push
@@ -188,10 +193,13 @@ function u_flipper(f)
 	else
 		t = f.angle1
 	end
+	local old_angle = f.angle
 	f.angle = mid(f.angle, t, f.angle + sgn(t - f.angle) * f.speed)
 
 	-- Speed is wrong here - it should be angle * length (?)
-	add_interaction(f.x, f.y - f.r1, f.x + f.length * sin(f.angle), f.y + f.length * cos(f.angle) - f.r2, flipper_thud, 0)
+	for theta = min(old_angle, f.angle), max(old_angle, f.angle), 0.01 do
+		add_interaction(f.x, f.y - f.r1, f.x + f.length * sin(theta), f.y + f.length * cos(theta) - f.r2, flipper_thud, 0)
+	end
 end
 
 function add_interaction(x1, y1, x2, y2, absorb, push, table)
@@ -210,13 +218,22 @@ end
 function line_ball_collision(x1, y1, x2, y2, ball)
     rectfill(x1,y1,x2,y2,1)
     line(x1, y1, x2, y2,10)
-    for x=0,7 do
-        for y=0,7 do
-            if sget(x+8,y) != 0 and pget(ball.x+x-4, ball.y+y-4)==10 then
-                return true
-            end
-        end
-    end
+	local d = ceil(distance(0, 0, ball.dx, ball.dy))
+	for i=0,d do
+		ball_x = ball.x - i*ball.dx/d
+		ball_y = ball.y - i*ball.dy/d
+		for x=0,7 do
+			for y=0,7 do
+				if sget(x+8,y) != 0 and pget(ball_x+x-4, ball_y+y-4)==10 then
+					-- SIDE EFFECT!?
+					local v = {}
+					v.x = ball_x
+					v.y = ball_y
+					return v
+				end
+			end
+		end
+	end
 	return false
 end
 
