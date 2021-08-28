@@ -210,6 +210,8 @@ function u_flipper(f)
 	end
 	local old_angle = f.angle
 	f.angle = mid(f.angle, t, f.angle + sgn(t - f.angle) * f.speed)
+
+
 end
 
 function in_tri(ax,ay,bx,by,cx,cy,px,py)
@@ -234,14 +236,18 @@ end
 
 function collides(i, ball)
 	--l = 0
-	local d = ceil(distance(0, 0, ball.dx, ball.dy)) * 2
-	for j=0,d do
-		ball_x = ball.x - j*ball.dx/d
-		ball_y = ball.y - j*ball.dy/d
-		--l += 1
-		if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
-			--printh('^^ hit')
-			return true
+	local xcoords = {3,2,0,-3,-2,0,-2}
+	local ycoords = {0,2,3,0,-2,-3,2}
+	for k = 1, count(xcoords) do
+		local d = ceil(distance(0, 0, ball.dx, ball.dy)) * 2
+		for j=0,d do
+			ball_x = ball.x - j*ball.dx/d + xcoords[k]
+			ball_y = ball.y - j*ball.dy/d + ycoords[k]
+			--l += 1
+			if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
+				--printh('^^ hit')
+				return true
+			end
 		end
 	end
 	return false
