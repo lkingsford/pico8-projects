@@ -143,9 +143,7 @@ function _update()
 	end
 	interactions = {}
 	foreach(flippers, u_flipper)
-
 	foreach(pinballs, u_pinball)
-
 end
 
 function u_pinball(pb)
@@ -236,13 +234,16 @@ end
 
 function collides(i, ball)
 	--l = 0
-	local xcoords = {3,2,0,-3,-2,0,-2}
-	local ycoords = {0,2,3,0,-2,-3,2}
+	local xcoords = {1, 4, 6, 7, 6, 4, 1, 0}
+	local ycoords = {1, 0, 1, 4, 6, 7, 6, 4}
+	if ((ball.y>i.x1)and(ball.x>i.x2)and(ball.x>i.x3))or((ball.x<i.x1)and(ball.x<i.x2)and(ball.x<i.x3))or((ball.y>i.y1)and(ball.y>i.y2)and(ball.y>i.y3))or((ball.y<i.y1)and(ball.y<i.y2)and(ball.y<i.y3)) then
+		return false
+	end
 	for k = 1, count(xcoords) do
 		local d = ceil(distance(0, 0, ball.dx, ball.dy)) * 2
 		for j=0,d do
-			ball_x = ball.x - j*ball.dx/d + xcoords[k]
-			ball_y = ball.y - j*ball.dy/d + ycoords[k]
+			ball_x = ball.x - j*ball.dx/d + xcoords[k] - 4
+			ball_y = ball.y - j*ball.dy/d + ycoords[k] - 4
 			--l += 1
 			if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
 				--printh('^^ hit')
