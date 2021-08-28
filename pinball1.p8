@@ -7,18 +7,19 @@ function _init()
 	pinballs={}
 
 	local p={}
-	p.x=50
-	p.dx=3
-	p.y=30
+	p.x=45
+	p.dx=2
+	p.y=10
 	p.r=4
 	p.dy=2
 	add(pinballs, p)
 
 	flippers={}
-	add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.045)
-	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.045)
-	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.045)
-	add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.045)
+	add_flipper(5, 100, 80, 10, 5, 40, .16, .3, 0.045)
+	--add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.045)
+	--add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.045)
+	--add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.045)
+	--add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.045)
 
 	flipper_thud = 0.6
 	gravity = 0.1
@@ -120,21 +121,25 @@ function d_pinball(pb)
 end
 
 function d_interact(i)
-	line(i.x1, i.y1, i.x2, i.y2, 2)
-	line(i.x1, i.y1, i.x3, i.y3, 2)
-	line(i.x2, i.y2, i.x3, i.y3, 2)
+	local c = min(15, max(1, i.bounce + 15*i.absorb))
+	line(i.x1, i.y1, i.x2, i.y2, c)
+	line(i.x1, i.y1, i.x3, i.y3, c)
+	line(i.x2, i.y2, i.x3, i.y3, c)
+	pset(i.x1, i.y1, 8)
+	pset(i.x2, i.y2, 11)
+	pset(i.x3, i.y3, 12)
 end
 
-function d_flipper(flipper)
-	circfill(flipper.x, flipper.y, flipper.r1, 4)
-	circ(flipper.x, flipper.y, flipper.r1, 9)
-	x2 = flipper.x + flipper.length * sin(flipper.angle)
-	y2 = flipper.y + flipper.length * cos(flipper.angle)
-	circfill(x2, y2, flipper.r2, 4)
-	circ(x2, y2, flipper.r2, 9)
-	-- TODO: Do this on angle, not just y +- r
-	line(flipper.x, flipper.y + flipper.r1, x2, y2 + flipper.r2, 9)
-	line(flipper.x, flipper.y - flipper.r1, x2, y2 - flipper.r2, 9)
+function d_flipper(f)
+	circ(f.x, f.y, f.r1, 9)
+	local sin_t = sin(f.angle)
+	local cos_t = cos(f.angle)
+	x2 = f.x + f.length * sin_t
+	y2 = f.y + f.length * cos_t
+	circfill(x2, y2, f.r2, 4)
+	circ(x2, y2, f.r2, 9)
+	line(f.x - f.r1 * cos_t, f.y + f.r1 * sin_t, x2 - f.r2 * cos_t, y2 + f.r2 * sin_t, 9)
+	line(f.x + f.r1 * cos_t, f.y - f.r1 * sin_t, x2 + f.r2 * cos_t, y2 - f.r2 * sin_t, 9)
 end
 
 function _update()
@@ -157,34 +162,37 @@ function u_pinball(pb)
 	-- Use as arg in foreach
 	cur_pb = pb
 	any_bump =false
-	--foreach(interactions, interact)
+	foreach(interactions, interact)
 	foreach(fixed_interactions, interact)
 
 	pb.dy += gravity
 end
 
 function interact(i)
+	if any_bump then return end
 	if not collides(i, cur_pb) then
 		return
 	end
+	any_bump = true
+	local arrow_length = 10
 	normal = i.normal
 	n_ref = {}
 	n_ref.x1 = cur_pb.x
 	n_ref.y1 = cur_pb.y
-	n_ref.x2 = cur_pb.x + sin(normal) * 5
-	n_ref.y2 = cur_pb.y + cos(normal) * 5
+	n_ref.x2 = cur_pb.x + sin(normal) * arrow_length
+	n_ref.y2 = cur_pb.y + cos(normal) * arrow_length
 	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
 	i_ref = {}
 	i_ref.x1 = cur_pb.x
 	i_ref.y1 = cur_pb.y
-	i_ref.x2 = cur_pb.x + sin(incident) * 5
-	i_ref.y2 = cur_pb.y + cos(incident) * 5
+	i_ref.x2 = cur_pb.x + sin(incident) * arrow_length
+	i_ref.y2 = cur_pb.y + cos(incident) * arrow_length
 	reflection = normal * 2 - incident
 	r_ref = {}
 	r_ref.x1 = cur_pb.x
 	r_ref.y1 = cur_pb.y
-	r_ref.x2 = cur_pb.x + sin(reflection) * 5
-	r_ref.y2 = cur_pb.y + cos(reflection) * 5
+	r_ref.x2 = cur_pb.x + sin(reflection) * arrow_length
+	r_ref.y2 = cur_pb.y + cos(reflection) * arrow_length
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
 	v = vold * i.absorb + i.bounce
 	cur_pb.dx = v * sin(reflection)
@@ -195,8 +203,6 @@ function interact(i)
   		cur_pb.x += norm_x
 		cur_pb.y += norm_y
 	end
-
-	-- Adjust for bounce
 end
 
 function u_flipper(f)
@@ -209,19 +215,52 @@ function u_flipper(f)
 	local old_angle = f.angle
 	f.angle = mid(f.angle, t, f.angle + sgn(t - f.angle) * f.speed)
 
+	-- Interaction only if a ball is nearby
+	-- (might optimize later)
+	local any_near = false
+	for b in all(pinballs) do
+		any_near = any_near or distance(b.x, b.y, f.x, f.y) < (f.length + 2)
+	end
+	if not any_near then
+		return
+	end
 
+	local theta_steps = 5
+	if old_angle == f.angle then theta_steps = 1 end
+	for ts = 1, theta_steps do
+		local t = old_angle + ((f.angle - old_angle) / theta_steps) * ts
+		local v = {}
+		local sin_t = sin(t)
+		local cos_t = cos(t)
+		v.x1 = f.x - f.r1 * cos_t
+		v.y1 = f.y + f.r1 * sin_t
+		v.x2 = f.x + f.length * sin_t - f.r2 * cos_t
+		v.y2 = f.y + f.length * cos_t + f.r2 * sin_t
+		v.x3 = f.x + f.r1 * cos_t
+		v.y3 = f.y - f.r1 * sin_t
+		v.ox = v.x1
+		v.oy = v.x2
+		v.normal = t + .25
+		v.absorb = flipper_thud
+		v.bounce = 0
+		add(interactions, v)
+		local l = {}
+		l.x1 = v.x2
+		l.y1 = v.y2
+		l.x2 = f.x + f.length * sin_t + f.r2 * cos_t
+		l.y2 = f.y + f.length * cos_t - f.r2 * sin_t
+		l.x3 = v.x3
+		l.y3 = v.y3
+		l.ox = v.x1
+		l.oy = v.y1
+		l.normal = v.normal + .5
+		l.absorb = flipper_thud
+		l.bounce = 0
+		add(interactions, l)
+	end
 end
 
 function in_tri(ax,ay,bx,by,cx,cy,px,py)
-	pr = 1
-	ax = ax / pr
-	ay = ay / pr
-	bx = bx / pr
-	by = by / pr
-	cx = cx / pr
-	cy = cy / pr
-	px = px / pr
-	py = py / pr
 	apab = cross(ax,ay,px,py,ax,ay,bx,by)
 	bpbc = cross(bx,by,px,py,bx,by,cx,cy)
 	cpca = cross(cx,cy,px,py,cx,cy,ax,ay)
