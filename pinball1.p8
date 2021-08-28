@@ -7,21 +7,21 @@ function _init()
 	pinballs={}
 
 	local p={}
-	p.x=45
-	p.dx=2
+	p.x=54
+	p.dx=0
 	p.y=10
 	p.r=4
 	p.dy=2
 	add(pinballs, p)
 
 	flippers={}
-	add_flipper(5, 100, 80, 10, 5, 40, .16, .3, 0.045)
+	add_flipper(5, 100, 80, 10, 10, 40, .25, .3, 0.045)
 	--add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.045)
 	--add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.045)
 	--add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.045)
 	--add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.045)
 
-	flipper_thud = 0.6
+	flipper_thud = 0.4
 	gravity = 0.1
 	ramp_thud = 1.1
 
@@ -43,6 +43,7 @@ function add_flipper(button, x, y, r1, r2, length, angle1, angle2, speed)
 	f.speed = speed
 	f.button = button
 	f.angle = angle1
+	f.bounce = 2 * sin(speed / 2) * length
 	add(flippers, f)
 end
 
@@ -194,7 +195,12 @@ function interact(i)
 	r_ref.x2 = cur_pb.x + sin(reflection) * arrow_length
 	r_ref.y2 = cur_pb.y + cos(reflection) * arrow_length
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
-	v = vold * i.absorb + i.bounce
+	v = vold * i.absorb
+	if not i.ox then
+		v += i.bounce
+	else
+		v += (i.bounce / i.l) * distance(cur_pb.x, cur_pb.y, i.ox, i.oy)
+	end
 	cur_pb.dx = v * sin(reflection)
 	cur_pb.dy = v * cos(reflection)
 	norm_x = sin(normal)
@@ -219,44 +225,102 @@ function u_flipper(f)
 	-- (might optimize later)
 	local any_near = false
 	for b in all(pinballs) do
-		any_near = any_near or distance(b.x, b.y, f.x, f.y) < (f.length + 2)
+		any_near = any_near or distance(b.x, b.y, f.x, f.y) < (f.length + max(f.r1, f.r2))
 	end
+	any_near = true
 	if not any_near then
 		return
 	end
 
 	local theta_steps = 5
-	if old_angle == f.angle then theta_steps = 1 end
+	local bounce = f.bounce
+	if old_angle == f.angle then
+		theta_steps = 1
+		bounce = 0
+	end
 	for ts = 1, theta_steps do
+		-- TODO - this can _surely_ use less tokens
 		local t = old_angle + ((f.angle - old_angle) / theta_steps) * ts
 		local v = {}
 		local sin_t = sin(t)
 		local cos_t = cos(t)
+		local fl_s_t = sin_t * f.length
+		local fl_c_t = cos_t * f.length
 		v.x1 = f.x - f.r1 * cos_t
 		v.y1 = f.y + f.r1 * sin_t
-		v.x2 = f.x + f.length * sin_t - f.r2 * cos_t
-		v.y2 = f.y + f.length * cos_t + f.r2 * sin_t
+		v.x2 = f.x + fl_s_t - f.r2 * cos_t
+		v.y2 = f.y + fl_c_t + f.r2 * sin_t
 		v.x3 = f.x + f.r1 * cos_t
 		v.y3 = f.y - f.r1 * sin_t
-		v.ox = v.x1
-		v.oy = v.x2
+		v.ox = f.x
+		v.oy = f.y
+		v.l = f.length
 		v.normal = t + .25
 		v.absorb = flipper_thud
-		v.bounce = 0
+		v.bounce = bounce
 		add(interactions, v)
 		local l = {}
 		l.x1 = v.x2
 		l.y1 = v.y2
-		l.x2 = f.x + f.length * sin_t + f.r2 * cos_t
-		l.y2 = f.y + f.length * cos_t - f.r2 * sin_t
+		l.x2 = f.x + fl_s_t + f.r2 * cos_t
+		l.y2 = f.y + fl_c_t - f.r2 * sin_t
 		l.x3 = v.x3
 		l.y3 = v.y3
-		l.ox = v.x1
-		l.oy = v.y1
+		l.ox = f.x
+		l.oy = f.y
+		l.l = f.length
 		l.normal = v.normal + .5
 		l.absorb = flipper_thud
-		l.bounce = 0
+		l.bounce = bounce
 		add(interactions, l)
+		local et = {}
+		et.x1 = v.x2
+		et.y1 = v.y2
+		et.x2 = f.x + fl_s_t
+		et.y2 = f.y + fl_c_t
+		et.x3 = f.x + (f.length + f.r2) * sin_t
+		et.y3 = f.y + (f.length + f.r2) * cos_t
+		et.l = f.length
+		et.normal = v.normal + .875
+		et.absorb = flipper_thud
+		et.bounce = bounce
+		add(interactions, et)
+		local eb = {}
+		eb.x1 = l.x2
+		eb.y1 = l.y2
+		eb.x2 = f.x + fl_s_t
+		eb.y2 = f.y + fl_c_t
+		eb.x3 = f.x + (f.length + f.r2) * sin_t
+		eb.y3 = f.y + (f.length + f.r2) * cos_t
+		eb.l = f.length
+		eb.normal = v.normal + .625
+		eb.absorb = flipper_thud
+		eb.bounce = bounce
+		add(interactions, eb)
+		local bt = {}
+		bt.x1 = v.x1
+		bt.y1 = v.y1
+		bt.x2 = f.x - f.r1 * sin_t
+		bt.y2 = f.y - f.r1 * cos_t
+		bt.x3 = f.x
+		bt.y3 = f.y
+		bt.l = f.length
+		bt.normal = v.normal + .125
+		bt.absorb = flipper_thud
+		bt.bounce = bounce
+		add(interactions, bt)
+		local bb = {}
+		bb.x1 = v.x3
+		bb.y1 = v.y3
+		bb.x2 = f.x - f.r1 * sin_t
+		bb.y2 = f.y - f.r1 * cos_t
+		bb.x3 = f.x
+		bb.y3 = f.y
+		bb.l = f.length
+		bb.normal = v.normal + .375
+		bb.absorb = flipper_thud
+		bb.bounce = bounce
+		add(interactions, bb)
 	end
 end
 
