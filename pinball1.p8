@@ -15,15 +15,13 @@ function _init()
 	add(pinballs, p)
 
 	flippers={}
-	--add_flipper(5, 100, 80, 10, 10, 40, .25, .3, 0.045)
-	add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.05, false)
-	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.05, false)
-	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.05, true)
-	add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.05, true)
+	--add_flipper(5, 100, 80, 7, 3, 40, .25, .3, 0.001)
+	add_flipper(5, 127-40, 100, 3, 1, 20, .16, .3, 0.1, false)
+	add_flipper(4, 40, 100, 3, 1, 20, -.16, -.3, 0.1, true)
 
 	flipper_thud = 0.4
 	gravity = 0.1
-	ramp_thud = 1.1
+	ramp_thud = 0.6
 
 	show_debug = true
 
@@ -108,9 +106,9 @@ function _draw()
 		print(incident, 1, 9, 9)
 		print(reflection, 1, 17, 10)
 		print(v, 1, 25, 10)
-		if normal then
-			--stop()
-		end
+		--if normal then
+		--stop()
+		--end
 	end
 end
 
@@ -166,22 +164,7 @@ function u_pinball(pb)
 	hits = {}
 	foreach(interactions, check_interact)
 	foreach(fixed_interactions, check_interact)
-	if count(hits) == 1 then
-		interact(hits[1])
-	elseif count(hits) > 1 then
-		local lowest = hits[1]
-		local lowest_value = 100
-		-- Pick where reflection is closest to normal
-		local inc = (0.75-atan2(pb.dx, pb.dy))%1
-		local inv_inc = (inc + .5) % 1
-		local lv = 100
-		local l = hits[1]
-		for hit in all(hits) do
-			local v = abs((hit.normal % 1) - inv_inc)
-			if v < lv then l = hit end
-		end
-		interact(l)
-	end
+	foreach(hits,interact)
 	pb.dy += gravity
 end
 
@@ -194,7 +177,14 @@ end
 
 function interact(i)
 	local arrow_length = 3
-	normal = i.normal
+	if not i.flipper then
+		normal = i.normal
+	else
+		-- Special flipper mode
+		ball_angle = (-1 * atan2(i.x1-cur_pb.x, i.y1-cur_pb.y) + .25)%1
+		normal = ball_angle + .25
+		if i.inv then normal += .5 end
+	end
 	n_ref = {}
 	n_ref.x1 = cur_pb.x
 	n_ref.y1 = cur_pb.y
@@ -225,9 +215,7 @@ function interact(i)
 	norm_y = cos(normal)
 	while collides(i, cur_pb) do
   		cur_pb.x += norm_x
-		cur_pb.dx += norm_x
 		cur_pb.y += norm_y
-		cur_pb.dy += norm_y
 	end
 end
 
@@ -252,98 +240,64 @@ function u_flipper(f)
 		return
 	end
 
-	local theta_steps = 5
 	local bounce = f.bounce
+	if f.inv_normal then inv = 0.5 else inv =  0 end
 	if old_angle == f.angle then
-		theta_steps = 1
 		bounce = 0
-	end
-	for ts = 1, theta_steps do
-		-- TODO - this can _surely_ use less tokens
-		local t = old_angle + ((f.angle - old_angle) / theta_steps) * ts
+
+		angle1 = f.angle
+		angle2 = f.angle
+
 		local v = {}
-		local sin_t = sin(t)
-		local cos_t = cos(t)
-		local fl_s_t = sin_t * f.length
-		local fl_c_t = cos_t * f.length
-		local inv = 0
-		if f.inv_normal then inv = 0.5 end
-		v.x1 = f.x - f.r1 * cos_t
-		v.y1 = f.y + f.r1 * sin_t
-		v.x2 = f.x + fl_s_t - f.r2 * cos_t
-		v.y2 = f.y + fl_c_t + f.r2 * sin_t
-		v.x3 = f.x + f.r1 * cos_t
-		v.y3 = f.y - f.r1 * sin_t
-		v.ox = f.x
-		v.oy = f.y
+		eff_length = f.length + f.r2
+		v.x1 = f.x - f.r1 * cos(angle1) - f.r1 * sin(angle1)
+		v.y1 = f.y + f.r1 * sin(angle1) - f.r1 * cos(angle1)
+		v.x2 = f.x + sin(angle1) * eff_length - f.r2 * cos(angle2)
+		v.y2 = f.y + cos(angle1) * eff_length + f.r2 * sin(angle2)
+		v.x3 = f.x + f.r1 * cos(angle2)
+		v.y3 = f.y - f.r1 * sin(angle2)
 		v.l = f.length
 		v.normal = t + .25 + inv
 		v.absorb = flipper_thud
 		v.bounce = bounce
+		v.flipper = true
+		v.inv = f.inv_normal
 		add(interactions, v)
-		local l = {}
-		l.x1 = v.x2
-		l.y1 = v.y2
-		l.x2 = f.x + fl_s_t + f.r2 * cos_t
-		l.y2 = f.y + fl_c_t - f.r2 * sin_t
-		l.x3 = v.x3
-		l.y3 = v.y3
-		l.ox = f.x
-		l.oy = f.y
-		l.l = f.length
-		l.normal = v.normal
-		l.absorb = flipper_thud
-		l.bounce = bounce
-		add(interactions, l)
-		local et = {}
-		et.x1 = v.x2
-		et.y1 = v.y2
-		et.x2 = f.x + fl_s_t
-		et.y2 = f.y + fl_c_t
-		et.x3 = f.x + (f.length + f.r2) * sin_t
-		et.y3 = f.y + (f.length + f.r2) * cos_t
-		et.l = f.length
-		et.normal = v.normal
-		et.absorb = flipper_thud
-		et.bounce = bounce
-		add(interactions, et)
-		local eb = {}
-		eb.x1 = l.x2
-		eb.y1 = l.y2
-		eb.x2 = f.x + fl_s_t
-		eb.y2 = f.y + fl_c_t
-		eb.x3 = f.x + (f.length + f.r2) * sin_t
-		eb.y3 = f.y + (f.length + f.r2) * cos_t
-		eb.l = f.length
-		eb.normal = v.normal
-		eb.absorb = flipper_thud
-		eb.bounce = bounce
-		add(interactions, eb)
-		local bt = {}
-		bt.x1 = v.x1
-		bt.y1 = v.y1
-		bt.x2 = f.x - f.r1 * sin_t
-		bt.y2 = f.y - f.r1 * cos_t
-		bt.x3 = f.x
-		bt.y3 = f.y
-		bt.l = f.length
-		bt.normal = v.normal
-		bt.absorb = flipper_thud
-		bt.bounce = bounce
-		add(interactions, bt)
-		local bb = {}
-		bb.x1 = v.x3
-		bb.y1 = v.y3
-		bb.x2 = f.x - f.r1 * sin_t
-		bb.y2 = f.y - f.r1 * cos_t
-		bb.x3 = f.x
-		bb.y3 = f.y
-		bb.l = f.length
-		bb.normal = v.normal
-		bb.absorb = flipper_thud
-		bb.bounce = bounce
-		add(interactions, bb)
+
+		local w = {}
+		w.x3 = v.x2
+		w.y3 = v.y2
+		w.x2 = f.x + sin(angle2) * eff_length + f.r2 * cos(angle1)
+		w.y2 = f.y + cos(angle2) * eff_length - f.r2 * sin(angle1)
+		w.x1 = f.x + f.r1 * cos(angle2)
+		w.y1 = f.y - f.r1 * sin(angle2)
+		w.l = f.length
+		w.normal = t + .25 + inv
+		w.absorb = flipper_thud
+		w.bounce = bounce
+		w.flipper = true
+		w.inv = f.inv_normal
+		add(interactions, w)
+	else
+		local v = {}
+		angle1 = max(f.angle1, f.angle2)
+		angle2 = min(f.angle1, f.angle2)
+		v.x1 = f.x - f.r1 * sin((angle1 + angle2) / 2)
+		v.y1 = f.y - f.r1 * cos((angle1 + angle2)/2)
+		v.x2 = f.x + sin(angle1) * eff_length
+		v.y2 = f.y + cos(angle1) * eff_length
+		v.x3 = f.x + sin(angle2) * eff_length
+		v.y3 = f.y + cos(angle2) * eff_length
+		v.normal = t + .25 + inv
+		v.absorb = flipper_thud
+		v.bounce = bounce
+		v.flipper = true
+		v.inv = f.inv_normal
+		add(interactions, v)
 	end
+
+	local inv = 0
+
 end
 
 function in_tri(ax,ay,bx,by,cx,cy,px,py)
@@ -361,7 +315,7 @@ function collides(i, ball)
 	--l = 0
 	local xcoords = {1, 4, 6, 7, 6, 4, 1, 0}
 	local ycoords = {1, 0, 1, 4, 6, 7, 6, 4}
-	if ((ball.y>i.x1)and(ball.x>i.x2)and(ball.x>i.x3))or((ball.x<i.x1)and(ball.x<i.x2)and(ball.x<i.x3))or((ball.y>i.y1)and(ball.y>i.y2)and(ball.y>i.y3))or((ball.y<i.y1)and(ball.y<i.y2)and(ball.y<i.y3)) then
+	if ((ball.x>i.x1)and(ball.x>i.x2)and(ball.x>i.x3))or((ball.x<i.x1)and(ball.x<i.x2)and(ball.x<i.x3))or((ball.y>i.y1)and(ball.y>i.y2)and(ball.y>i.y3))or((ball.y<i.y1)and(ball.y<i.y2)and(ball.y<i.y3)) then
 		return false
 	end
 	for k = 1, count(xcoords) do
