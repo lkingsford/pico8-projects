@@ -7,19 +7,19 @@ function _init()
 	pinballs={}
 
 	local p={}
-	p.x=54
-	p.dx=0
+	p.x=52
+	p.dx=0.1
 	p.y=10
 	p.r=4
 	p.dy=2
 	add(pinballs, p)
 
 	flippers={}
-	add_flipper(5, 100, 80, 10, 10, 40, .25, .3, 0.045)
-	--add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.045)
-	--add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.045)
-	--add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.045)
-	--add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.045)
+	--add_flipper(5, 100, 80, 10, 10, 40, .25, .3, 0.045)
+	add_flipper(5, 100, 80, 3, 1.5, 16, .16, .3, 0.05, false)
+	add_flipper(5, 86, 100, 3, 1.5, 16, .16, .3, 0.05, false)
+	add_flipper(4, 42, 100, 3, 1.5, 16, -.16, -.3, 0.05, true)
+	add_flipper(4, 28, 80, 3, 1.5, 16, -.16, -.3, 0.05, true)
 
 	flipper_thud = 0.4
 	gravity = 0.1
@@ -31,7 +31,7 @@ function _init()
 
 end
 
-function add_flipper(button, x, y, r1, r2, length, angle1, angle2, speed)
+function add_flipper(button, x, y, r1, r2, length, angle1, angle2, speed, inv_normal)
 	local f = {}
 	f.x = x
 	f.y = y
@@ -44,6 +44,7 @@ function add_flipper(button, x, y, r1, r2, length, angle1, angle2, speed)
 	f.button = button
 	f.angle = angle1
 	f.bounce = 2 * sin(speed / 2) * length
+	f.inv_normal = inv_normal
 	add(flippers, f)
 end
 
@@ -162,52 +163,71 @@ function u_pinball(pb)
 	pb.y = new_y
 	-- Use as arg in foreach
 	cur_pb = pb
-	any_bump =false
-	foreach(interactions, interact)
-	foreach(fixed_interactions, interact)
-
+	hits = {}
+	foreach(interactions, check_interact)
+	foreach(fixed_interactions, check_interact)
+	if count(hits) == 1 then
+		interact(hits[1])
+	elseif count(hits) > 1 then
+		local lowest = hits[1]
+		local lowest_value = 100
+		-- Pick where reflection is closest to normal
+		local inc = (0.75-atan2(pb.dx, pb.dy))%1
+		local inv_inc = (inc + .5) % 1
+		local lv = 100
+		local l = hits[1]
+		for hit in all(hits) do
+			local v = abs((hit.normal % 1) - inv_inc)
+			if v < lv then l = hit end
+		end
+		interact(l)
+	end
 	pb.dy += gravity
 end
 
-function interact(i)
-	if any_bump then return end
+function check_interact(i)
 	if not collides(i, cur_pb) then
 		return
 	end
-	any_bump = true
-	local arrow_length = 10
+	add(hits, i)
+end
+
+function interact(i)
+	local arrow_length = 3
 	normal = i.normal
 	n_ref = {}
 	n_ref.x1 = cur_pb.x
 	n_ref.y1 = cur_pb.y
-	n_ref.x2 = cur_pb.x + sin(normal) * arrow_length
-	n_ref.y2 = cur_pb.y + cos(normal) * arrow_length
 	incident = -1 * (atan2(cur_pb.dx, cur_pb.dy) - .25) % 1
 	i_ref = {}
 	i_ref.x1 = cur_pb.x
 	i_ref.y1 = cur_pb.y
-	i_ref.x2 = cur_pb.x + sin(incident) * arrow_length
-	i_ref.y2 = cur_pb.y + cos(incident) * arrow_length
+	i_ref.x2 = cur_pb.x + sin(incident) * arrow_length * 3
+	i_ref.y2 = cur_pb.y + cos(incident) * arrow_length * 3
 	reflection = normal * 2 - incident
 	r_ref = {}
 	r_ref.x1 = cur_pb.x
 	r_ref.y1 = cur_pb.y
-	r_ref.x2 = cur_pb.x + sin(reflection) * arrow_length
-	r_ref.y2 = cur_pb.y + cos(reflection) * arrow_length
 	vold = distance(0, 0, cur_pb.dx, cur_pb.dy)
+	n_ref.x2 = cur_pb.x + sin(normal) * arrow_length * vold
+	n_ref.y2 = cur_pb.y + cos(normal) * arrow_length * vold
 	v = vold * i.absorb
 	if not i.ox then
 		v += i.bounce
 	else
 		v += (i.bounce / i.l) * distance(cur_pb.x, cur_pb.y, i.ox, i.oy)
 	end
+	r_ref.x2 = cur_pb.x + sin(reflection) * arrow_length * v
+	r_ref.y2 = cur_pb.y + cos(reflection) * arrow_length * v
 	cur_pb.dx = v * sin(reflection)
 	cur_pb.dy = v * cos(reflection)
 	norm_x = sin(normal)
 	norm_y = cos(normal)
 	while collides(i, cur_pb) do
   		cur_pb.x += norm_x
+		cur_pb.dx += norm_x
 		cur_pb.y += norm_y
+		cur_pb.dy += norm_y
 	end
 end
 
@@ -246,6 +266,8 @@ function u_flipper(f)
 		local cos_t = cos(t)
 		local fl_s_t = sin_t * f.length
 		local fl_c_t = cos_t * f.length
+		local inv = 0
+		if f.inv_normal then inv = 0.5 end
 		v.x1 = f.x - f.r1 * cos_t
 		v.y1 = f.y + f.r1 * sin_t
 		v.x2 = f.x + fl_s_t - f.r2 * cos_t
@@ -255,7 +277,7 @@ function u_flipper(f)
 		v.ox = f.x
 		v.oy = f.y
 		v.l = f.length
-		v.normal = t + .25
+		v.normal = t + .25 + inv
 		v.absorb = flipper_thud
 		v.bounce = bounce
 		add(interactions, v)
@@ -269,7 +291,7 @@ function u_flipper(f)
 		l.ox = f.x
 		l.oy = f.y
 		l.l = f.length
-		l.normal = v.normal + .5
+		l.normal = v.normal
 		l.absorb = flipper_thud
 		l.bounce = bounce
 		add(interactions, l)
@@ -281,7 +303,7 @@ function u_flipper(f)
 		et.x3 = f.x + (f.length + f.r2) * sin_t
 		et.y3 = f.y + (f.length + f.r2) * cos_t
 		et.l = f.length
-		et.normal = v.normal + .875
+		et.normal = v.normal
 		et.absorb = flipper_thud
 		et.bounce = bounce
 		add(interactions, et)
@@ -293,7 +315,7 @@ function u_flipper(f)
 		eb.x3 = f.x + (f.length + f.r2) * sin_t
 		eb.y3 = f.y + (f.length + f.r2) * cos_t
 		eb.l = f.length
-		eb.normal = v.normal + .625
+		eb.normal = v.normal
 		eb.absorb = flipper_thud
 		eb.bounce = bounce
 		add(interactions, eb)
@@ -305,7 +327,7 @@ function u_flipper(f)
 		bt.x3 = f.x
 		bt.y3 = f.y
 		bt.l = f.length
-		bt.normal = v.normal + .125
+		bt.normal = v.normal
 		bt.absorb = flipper_thud
 		bt.bounce = bounce
 		add(interactions, bt)
@@ -317,7 +339,7 @@ function u_flipper(f)
 		bb.x3 = f.x
 		bb.y3 = f.y
 		bb.l = f.length
-		bb.normal = v.normal + .375
+		bb.normal = v.normal
 		bb.absorb = flipper_thud
 		bb.bounce = bounce
 		add(interactions, bb)
