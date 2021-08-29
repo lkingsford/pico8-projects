@@ -22,6 +22,7 @@ function draw_actors()
 			a.sprite = 2 + a.x % 2
 		end
 		spr(a.sprite, a.x, a.y)
+		print(a.jumps,0,0,10)
 	end
 end
 
@@ -77,6 +78,7 @@ function update_actors()
 					if a.dy > 1 then
 						a.y = ceil(a.y/8) * 8
 						a.on_floor = true
+						a.jumps = 0
 					end
 					a.dy = 0
 				end
@@ -86,6 +88,7 @@ function update_actors()
 		end
 		-- Friction
 		a.dx *= 0.8
+		if abs(a.dy) > 0 then a.on_floor = false end
 		a.logic(a)
 		-- Wraparound
 		a.x = a.x % 128
@@ -121,6 +124,10 @@ function jump(actor)
 	if actor.on_floor then
 		actor.dy -= jump
 		actor.on_floor = false
+		actor.jumps = 1
+	elseif actor.jumps == 0 or actor.jumps == 1 then
+		actor.dy -= jump
+		actor.jumps = 2
 	end
 end
 
@@ -194,6 +201,7 @@ function _init()
 	p0.x = 10
 	p0.y = 40
 	p0.player = 0
+	p0.jumps = 0
 	actors={p0}
 end
 __gfx__
