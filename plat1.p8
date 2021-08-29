@@ -136,33 +136,39 @@ function _update()
 	update_actors()
 end
 
+function near_int(x)
+	if sgn(x % 1 - 0.5) > 0 then return ceil(x) end
+	return flr(x)
+end
+
 function update_actors()
 	for a in all(actors) do
 		-- Gravity
 		a.dy = min(4,a.dy+0.4)
+		init_dy = a.dy
 		-- Move. Doing multiple per frame.
 		if max(abs(a.dx), abs(a.dy)) > 0 then
 			local steps = 5
 			for i = 0, steps do
-				if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y-1) then
-					if a.dx > 0 then
-						a.y = flr(a.y)
-					else
-						a.y = ceil(a.y)
-					end
-					a.colx = true
-					a.dx = 0
-				end
-				if abs(a.dy) > 0 and check_collide(a.x, a.y + a.dy / steps) then
+				if not a.colx and abs(a.dy) > 0 and check_collide(a.x, a.y + a.dy / steps) then
 					if a.dy > 1 then
-						a.y = ceil(a.y/8) * 8
+						a.y = near_int(a.y/8) * 8
 						a.on_floor = true
 						a.jumps = 0
 					else
-						a.y = flr(a.y)
+						a.y = near_int(a.y/8) * 8
 					end
 					a.dy = 0
 					a.coly = true
+				end
+				if a.on_floor then
+					on_floor_mod = -1
+				else
+					on_floor_mod = 1
+				end
+				if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y + on_floor_mod) then
+					a.dx = 0
+					a.colx = true
 				end
 				a.x += a.dx / steps
 				a.y += a.dy / steps
@@ -190,7 +196,7 @@ function player(actor)
 	local o = btnp(4, p)
 	local x = btnp(5, p)
 	local accel = .75
-	local max = 4
+	local max = 3
 	if l then
 		actor.dx -= accel
 		actor.flip = true
@@ -199,6 +205,7 @@ function player(actor)
 		actor.dx += accel
 		actor.flip = false
 	end
+	actor.dx = min(abs(actor.dx), max) * sgn(actor.dx)
 	if x then
 		jump(actor)
 	end
@@ -367,13 +374,13 @@ function check_collide(x, y, w, h)
 
  	for i = x, x+w, w do
 		if fget(mget(i/8,y/8),0) or fget(mget(i/8,(y+h)%128/8),0) then
-			collide = true
+			return true
 		end
 	end
 
 	for i = y, y+h, h do
 		if fget(mget(x/8,i/8),0) or fget(mget((x+w)%128/8,i/8),0) then
-			collide = true
+			return true
 		end
 	end
 	return collide
