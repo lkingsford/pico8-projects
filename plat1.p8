@@ -22,18 +22,19 @@ end
 function draw_actors()
 	for a in all(actors) do
 		if fget(a.sprite, 0) then -- x dependent animated
-			a.sprite = 2 + (a.x/4) % 2
+			a.sprite = 2 + (a.x/4 + anim_f) % 2
 		end
 		local w = a.w or 1
 		local h = a.h or 1
 		spr(a.sprite, a.x, a.y,w,h,a.flip)
-		-- Draw raparound
+		-- Draw wraparound
 		if (a.x > 120) then
 			spr(a.sprite, a.x - 127, a.y,w,h,a.flip)
 		end
 		if (a.y > 120) then
 			spr(a.sprite, a.x, a.y - 127,w,h,a.flip)
 		end
+		a.draw_logic(a)
 		a.colx = false
 		a.coly = false
 	end
@@ -147,7 +148,9 @@ function update_actors()
 			end
 		end
 		-- Friction
-		a.dx *= 0.8
+		if a.on_floor then
+			a.dx *= 0.8
+		end
 		if abs(a.dy) > 0 then a.on_floor = false end
 		a.logic(a)
 		-- Wraparound (breaks collision)
@@ -162,8 +165,8 @@ function player(actor)
 	local l = btn(0, p)
 	local r = btn(1, p)
 	--local u = btn(2, p)
-	--local d = btn(3, p)
-	--local o = btn(4, p)
+	local d = btn(3, p)
+	local o = btnp(4, p)
 	local x = btnp(5, p)
 	local accel = .75
 	local max = 4
@@ -178,6 +181,9 @@ function player(actor)
 	if x then
 		jump(actor)
 	end
+	if o then
+		bomb(actor, d)
+	end
 	--actor.dx = mid(-max,actor.dx,max)
 end
 
@@ -191,6 +197,94 @@ function jump(actor)
 		actor.dy -= jump
 		actor.jumps = 2
 		add(fore_parts,new_jump_parts(actor))
+	end
+end
+
+function bomb(actor, drop)
+	local b = new_actor(66,bomb_update,bomb_draw)
+	b.x = actor.x
+	b.y = actor.y
+	if drop then
+		b.dx = actor.dx
+		b.dy = actor.dy
+	else
+		b.dx = actor.dx + sgn(actor.dx) * 3
+		b.dy = actor.dy - 4
+	end
+	b.wick = {{2,1},{3,1},{4,2},{4,3}}
+	b.t = 60
+	b.max_t = b.t
+	b.t_per_wick = b.t/#b.wick
+	b.t_next_wick = b.t_per_wick
+	b.r = 3
+	add(actors, b)
+end
+
+function bomb_update(b)
+	b.t -= 1
+	b.t_next_wick -= 1
+	if b.t_next_wick <= 0 then
+		b.t_next_wick = b.t_per_wick
+		del(b.wick, b.wick[1])
+	end
+	if b.t <= 0 then
+		del(actors, b)
+		explode(b)
+	end
+end
+
+function explode(b)
+	local high = 12
+	local low = 0
+	for i = high, low, -0.25 do
+		local p = {}
+		p.draw = draw_explode_part
+		p.update = update_basic_part
+		p.x = b.x + rnd(i/2) - (i/4)
+		p.y = b.y + rnd(i/2) - (i/4)
+		p.r = rnd(high - i) / 2
+		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
+		theta = atan2(b.x-p.x, b.y-p.y)
+		p.dx = i * sin(theta)
+		p.dy = i * cos(theta)
+		p.t = rnd(high-i) * 2
+		p.gravity = true
+		add(fore_parts, p)
+	end	
+end
+
+function draw_explode_part(p)
+	circfill(p.x, p.y, p.r, p.c)
+end
+
+function bomb_draw(b)
+	if #b.wick == 0 then return end
+	for p in all(b.wick) do
+		pset(b.x + p[1], b.y + p[2], 4)
+	end
+
+	-- Spark
+	for i = 0,3 do
+		p={}
+		p.draw = draw_basic_part
+		p.update = update_basic_part
+		p.x = b.wick[1][1] + b.x
+		p.y = b.wick[1][2] + b.y
+		p.t = 2
+		p.c = rnd({10,10,7})
+		p.dx = rnd(1)-.5
+		p.dy = rnd(1)-.5
+		p.gravity = true
+		add(fore_parts, p)
+	end
+
+	-- Flashing bomb
+	if b.t > b.max_t/3 and b.t < (b.max_t / 3) * 2 then
+		b.sprite = 66 + (b.t / 5) % 2
+	elseif b.t > 10 and b.t < b.max_t / 3 then
+		b.sprite = 66 + (b.t / 2) % 2
+	elseif b.t < 10 then
+		b.sprite = 67
 	end
 end
 
@@ -246,10 +340,13 @@ function init_map()
 	oy=0
 end
 
-function new_actor(sprite, logic)
+function new_actor(sprite, logic, draw_logic)
+	logic = logic or none
+	draw_logic = draw_logic or none
 	local a = {}
 	a.sprite = sprite
 	a.logic = logic
+	a.draw_logic = draw_logic
 	a.x = 0
 	a.y = 0
 	a.dx = 0
@@ -304,13 +401,13 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000888880
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0e000e00060006000044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-28e028e01c601c600000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-88828880ccc1ccc00005460000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-088888000ccccc000055556000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0288820001ccc1000015556000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00288000001cc0000015555000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00020000000100000001150000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0e000e00060006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+28e028e01c601c600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+88828880ccc1ccc000055600000e7700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+088888000ccccc00005555600088ee70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0288820001ccc1000015556000288870000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00288000001cc00000155550002888e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00020000000100000001150000022e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000077777700777777007777770077777700777777007777770077777700777777000000000000000000000000000000000
 00000000000000000000000000000000566666675666666756666667566666675666666756666667566666675666666700000000000000000000000000000000
