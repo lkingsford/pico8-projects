@@ -113,15 +113,23 @@ function update_part()
 	end
 end
 
-function add_screen_shake(amount)
-	shake_amount += amount
+function add_screen_shake(amount, diff)
+	local s = {}
+	s.amount = amount
+	s.diff = diff
+	add(shakes, s)
 end
 
 function update_shake()
-	local new_shake = {rnd(shake_amount*2) - shake_amount, rnd(shake_amount*2) - shake_amount}
-	camera(new_shake[1], new_shake[2])
-	shake_amount -= shake_diff
-	shake_amount = max(shake_amount, 0)
+	local x_offset = 0
+	local y_offset = 0
+	for shake in all(shakes) do
+		theta = rnd()
+		x_offset += shake.amount * sin(theta)
+		y_offset += shake.amount * cos(theta)
+		shake.amount = max(shake.amount - shake.diff, 0)
+	end
+	camera(x_offset, y_offset)
 end
 
 function _update()
@@ -223,6 +231,7 @@ function bomb(actor, drop)
 	else
 		b.dx = actor.dx + sgn(actor.dx) * 3
 		b.dy = actor.dy - 4
+		add_screen_shake(0.5,1)
 	end
 	b.wick = {{2,1},{3,1},{4,2},{4,3}}
 	b.t = 60
@@ -247,6 +256,9 @@ function bomb_update(b)
 end
 
 function explode(b)
+
+
+	-- These are for the boom boom effects
 	local high = 12
 	local low = 0
 	for i = high, low, -0.25 do
@@ -281,7 +293,7 @@ function explode(b)
 		p.gravity = true
 		add(fore_parts, p)
 	end
-	add_screen_shake(3)
+	add_screen_shake(4, 1)
 end
 
 function draw_explode_part(p)
@@ -398,8 +410,7 @@ function _init()
 	p0.player = 0
 	p0.jumps = 0
 	actors={p0}
-	shake_amount = 0
-	shake_diff = 1
+	shakes = {}
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000777777054545454000000000000000000000000000000000000000000000000
