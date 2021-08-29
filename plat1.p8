@@ -5,8 +5,10 @@ __lua__
 -- lachlan kingsford
 
 function _draw()
+	camera()
 	cls()
 	update_part()
+	update_shake()
 	draw_back()
 	draw_map()
 	draw_actors()
@@ -109,6 +111,17 @@ function update_part()
 			add(back_part,new_back_part(0))
 		end
 	end
+end
+
+function add_screen_shake(amount)
+	shake_amount += amount
+end
+
+function update_shake()
+	local new_shake = {rnd(shake_amount*2) - shake_amount, rnd(shake_amount*2) - shake_amount}
+	camera(new_shake[1], new_shake[2])
+	shake_amount -= shake_diff
+	shake_amount = max(shake_amount, 0)
 end
 
 function _update()
@@ -242,8 +255,11 @@ function explode(b)
 		p.update = update_basic_part
 		p.x = b.x + rnd(i/2) - (i/4)
 		p.y = b.y + rnd(i/2) - (i/4)
+		p.x2 = rnd(1) - .5
+		p.y2 = rnd(1) - .5
 		p.r = rnd(high - i) / 2
 		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
+		p.c2 = rnd({7,8,8,9,9,9,10,10,10,10})
 		theta = atan2(b.x-p.x, b.y-p.y)
 		p.dx = i * sin(theta)
 		p.dy = i * cos(theta)
@@ -251,10 +267,26 @@ function explode(b)
 		p.gravity = true
 		add(fore_parts, p)
 	end	
+	for i = 0, 20 do
+		local p = {}
+		p.draw = draw_basic_part
+		p.update = update_basic_part
+		p.x = b.x
+		p.y = b.y
+		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
+		theta = rnd()
+		p.dx = i * sin(theta)
+		p.dy = i * cos(theta)
+		p.t = 999
+		p.gravity = true
+		add(fore_parts, p)
+	end
+	add_screen_shake(3)
 end
 
 function draw_explode_part(p)
 	circfill(p.x, p.y, p.r, p.c)
+	circfill(p.x + p.x2, p.y + p.y2, p.r * .8, p.c2)
 end
 
 function bomb_draw(b)
@@ -366,6 +398,8 @@ function _init()
 	p0.player = 0
 	p0.jumps = 0
 	actors={p0}
+	shake_amount = 0
+	shake_diff = 1
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000777777054545454000000000000000000000000000000000000000000000000
