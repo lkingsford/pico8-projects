@@ -246,10 +246,10 @@ function bomb(actor, drop)
 	b.max_t = b.t
 	b.t_per_wick = b.t/#b.wick
 	b.t_next_wick = b.t_per_wick
-	b.r = 1
+	b.r = 1.5
 	add(actors, b)
 end
- 
+
 function distance(x1, y1, x2, y2)
 	return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
 end
@@ -272,6 +272,9 @@ function remove_grass(ix, iy)
 	if mget(ix, iy - 1) == 10 or mget(ix, iy - 1) == 11 then
 		mset(ix, iy - 1, 0)
 	end
+	if mget(ix, iy + 1) == 25 then
+		mset(ix, iy + 1, 0)
+	end
 end
 
 function explode(b)
@@ -280,7 +283,7 @@ function explode(b)
 	for ix = x - b.r, x + b.r do
 	for iy = y - b.r, y + b.r do
 		if flr(distance(x,y,ix,iy)) <= b.r then
-			if fget(mget(ix,iy),1) then
+			if not fget(mget(ix,iy),1) then
 				remove_grass(ix, iy)
 				mset(ix, iy, 0)
 			end
