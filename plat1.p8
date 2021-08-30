@@ -28,13 +28,13 @@ function draw_actors()
 		end
 		local w = a.w or 1
 		local h = a.h or 1
-		spr(a.sprite, a.x, a.y,w,h,a.flip)
+		spr(a.sprite, a.x + 1, a.y + 1,w,h,a.flip)
 		-- Draw wraparound
 		if (a.x > 120) then
-			spr(a.sprite, a.x - 127, a.y,w,h,a.flip)
+			spr(a.sprite, a.x + 1- 127, 1 + a.y,w,h,a.flip)
 		end
 		if (a.y > 120) then
-			spr(a.sprite, a.x, a.y - 127,w,h,a.flip)
+			spr(a.sprite, a.x + 1, 1 + a.y - 127,w,h,a.flip)
 		end
 		a.draw_logic(a)
 		a.colx = false
@@ -53,7 +53,7 @@ function draw_map()
 				local t = mget(ix,iy)
 				if fget(t,7) then
 					local b = t-t%2
-					mset(ix,iy,t-t%2+anim_f)					
+					mset(ix,iy,t-t%2+anim_f)
 				end
 			end
 		end
@@ -143,7 +143,8 @@ end
 
 function update_actors()
 	for a in all(actors) do
-		init_dy = a.dy
+		init_x = a.x
+		init_y = a.y
 		-- Move. Doing multiple per frame.
 		if max(abs(a.dx), abs(a.dy)) > 0 then
 			local steps = 5
@@ -165,6 +166,12 @@ function update_actors()
 					a.x += a.dx / steps
 				end
 			end
+		end
+		if check_collide(a.x, a.y) then
+			-- Hack to deal with getting stuck
+			-- ... not happy that I need it
+			a.x = init_x
+			a.y = init_y
 		end
 		-- Friction
 		if a.on_floor then
@@ -301,7 +308,7 @@ function explode(b)
 		p.t = rnd(high-i) * 2
 		p.gravity = true
 		add(fore_parts, p)
-	end	
+	end
 	for i = 0, 20 do
 		local p = {}
 		p.draw = draw_basic_part
@@ -370,10 +377,10 @@ function check_collide(x, y, w, h)
 	x = (x+1) % 128
 	y = (y+1) % 128
 
-	a = check_collide_p(x,y)
-	b = check_collide_p(x+w,y)
-	c = check_collide_p(x,y+h-1)
-	d = check_collide_p(x+w,y+h-1)
+	a = check_collide_p(x+1,y+1)
+	b = check_collide_p(x+w-1,y+1)
+	c = check_collide_p(x+1,y+h-1)
+	d = check_collide_p(x+w-1,y+h-1)
 	if a or b or c or d then return true else return false end
 end
 
