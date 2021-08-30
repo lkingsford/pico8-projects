@@ -143,35 +143,27 @@ end
 
 function update_actors()
 	for a in all(actors) do
-		-- Gravity
-		a.dy = min(4,a.dy+0.4)
 		init_dy = a.dy
 		-- Move. Doing multiple per frame.
 		if max(abs(a.dx), abs(a.dy)) > 0 then
 			local steps = 5
 			for i = 0, steps do
 				if not a.colx and abs(a.dy) > 0 and check_collide(a.x, a.y + a.dy / steps) then
-					if a.dy > 1 then
-						a.y = near_int(a.y/8) * 8
+					a.coly = true
+					if a.dy >= 0 then
 						a.on_floor = true
 						a.jumps = 0
-					else
-						a.y = near_int(a.y/8) * 8
 					end
 					a.dy = 0
-					a.coly = true
-				end
-				if a.on_floor then
-					on_floor_mod = -1
 				else
-					on_floor_mod = 1
+					a.y += a.dy / steps
 				end
-				if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y + on_floor_mod) then
-					a.dx = 0
+				if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y) then
 					a.colx = true
+					a.dx = 0
+				else
+					a.x += a.dx / steps
 				end
-				a.x += a.dx / steps
-				a.y += a.dy / steps
 			end
 		end
 		-- Friction
@@ -183,6 +175,8 @@ function update_actors()
 		-- Wraparound (breaks collision)
 		a.x = a.x % 128
 		a.y = a.y % 128
+		-- Gravity
+		a.dy = min(4,a.dy+0.3)
 	end
 end
 
@@ -218,11 +212,11 @@ end
 function jump(actor)
 	local jump = 4
 	if actor.on_floor then
-		actor.dy -= jump
+		actor.dy = -jump
 		actor.on_floor = false
 		actor.jumps = 1
 	elseif actor.jumps == 0 or actor.jumps == 1 then
-		actor.dy -= jump
+		actor.dy = -jump
 		actor.jumps = 2
 		add(fore_parts,new_jump_parts(actor))
 	end
@@ -365,25 +359,22 @@ function none(actor)
 	-- Do nothing
 end
 
+function check_collide_p(x,y)
+	return fget(mget(x%128/8, y%128/8), 0)
+end
+
 function check_collide(x, y, w, h)
 	local collide = false
 	w = w or 8
 	h = h or 8
-	x = x % 128
-	y = y % 128
+	x = (x+1) % 128
+	y = (y+1) % 128
 
- 	for i = x, x+w, w do
-		if fget(mget(i/8,y/8),0) or fget(mget(i/8,(y+h)%128/8),0) then
-			return true
-		end
-	end
-
-	for i = y, y+h, h do
-		if fget(mget(x/8,i/8),0) or fget(mget((x+w)%128/8,i/8),0) then
-			return true
-		end
-	end
-	return collide
+	a = check_collide_p(x,y)
+	b = check_collide_p(x+w,y)
+	c = check_collide_p(x,y+h-1)
+	d = check_collide_p(x+w,y+h-1)
+	if a or b or c or d then return true else return false end
 end
 
 function init_back()
