@@ -300,7 +300,7 @@ function explode(b)
 	local y = b.y / 8
 	for ix = x - b.r, x + b.r do
 	for iy = y - b.r, y + b.r do
-		if ceil(distance(x,y,ix,iy)) <= b.r then
+		if ceil(distance(x+0.5,y+0.5,ix,iy)) <= b.r then
 			if not fget(mget(ix,iy),1) then
 				remove_grass(ix, iy)
 				mset(ix, iy, 0)
