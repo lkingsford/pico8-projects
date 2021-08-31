@@ -16,6 +16,10 @@ function _draw()
 end
 
 function draw_back()
+	if flash then
+		rectfill(0,0,127,127,1)
+		flash = false
+	end
 	for p in all(back_part) do
 		pset(p.x, p.y, p.c)
 	end
@@ -247,6 +251,7 @@ function bomb(actor, drop)
 	b.t_per_wick = b.t/#b.wick
 	b.t_next_wick = b.t_per_wick
 	b.r = 2.5
+	b.exploded = exploded
 	add(actors, b)
 end
 
@@ -262,7 +267,6 @@ function bomb_update(b)
 		del(b.wick, b.wick[1])
 	end
 	if b.t <= 0 then
-		del(actors, b)
 		explode(b)
 	end
 end
@@ -277,7 +281,13 @@ function remove_grass(ix, iy)
 	end
 end
 
+function exploded(b)
+	-- Make bomb explode just a frame after the one next to it doees
+	b.t = 3
+end
+
 function explode(b)
+	del(actors, b)
 	local x = b.x / 8
 	local y = b.y / 8
 	for ix = x - b.r, x + b.r do
@@ -300,7 +310,9 @@ function explode(b)
 			local v = 10
 			a.dx += cos(btheta) * v
 			a.dy += sin(btheta) * v
-			printh(a.x-b.x.. ' '.. a.y-b.y.. '   '..btheta ..' '..a.dx..' '..a.dy)
+			if a.exploded then
+				a.exploded(a)
+			end
 		end
 	end end
 
@@ -340,6 +352,7 @@ function explode(b)
 		p.gravity = true
 		add(fore_parts, p)
 	end
+	flash = true
 	add_screen_shake(4, 1)
 end
 
@@ -454,7 +467,6 @@ function load_map(map_id)
 		local src = 0x2000+iy*128+map_x
 		local dest = 0x2000+iy*128
 		memcpy(dest, src, 16)
-		printh(src ..' -> '..dest..' mapx '..map_x..' iy '..iy)
 	end
 	-- Player starting locations
 	for iy = 0, 15 do for ix = 0, 15 do
