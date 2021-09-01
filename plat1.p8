@@ -196,7 +196,7 @@ function player(actor)
 	local p = actor.player
 	local l = btn(0, p)
 	local r = btn(1, p)
-	--local u = btn(2, p)
+	local u = btn(2, p)
 	local d = btn(3, p)
 	local o = btnp(4, p)
 	local x = btnp(5, p)
@@ -215,7 +215,7 @@ function player(actor)
 		jump(actor)
 	end
 	if o then
-		bomb(actor, d)
+		bomb(actor, d, u)
 	end
 	if abs(actor.dx) > 0.1 and actor.on_floor then
 		if (stat(17) != 3) then
@@ -240,16 +240,20 @@ function jump(actor)
 	sfx(1)
 end
 
-function bomb(actor, drop)
+function bomb(actor, drop, up)
 	local b = new_actor(66,bomb_update,bomb_draw)
 	b.x = actor.x
 	b.y = actor.y
 	if drop then
 		b.dx = actor.dx
 		b.dy = actor.dy
+	elseif up then
+		b.dx = actor.dx + sgn(actor.dx) * 3
+		b.dy = actor.dy - 6
+		add_screen_shake(0.5,1)
 	else
 		b.dx = actor.dx + sgn(actor.dx) * 3
-		b.dy = actor.dy - 4
+		b.dy = actor.dy - 3
 		add_screen_shake(0.5,1)
 	end
 	b.wick = {{2,1},{3,1},{4,2},{4,3}}
@@ -291,6 +295,8 @@ end
 
 function exploded(b)
 	-- Make bomb explode just a frame after the one next to it doees
+	b.dy += rnd(0.5)
+	b.dx += rnd(0.5)
 	b.t = 3
 end
 
