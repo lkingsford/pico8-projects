@@ -232,12 +232,13 @@ function jump(actor)
 		actor.dy = -jump
 		actor.on_floor = false
 		actor.jumps = 1
+		sfx(1)
 	elseif actor.jumps == 0 or actor.jumps == 1 then
 		actor.dy = -jump
 		actor.jumps = 2
 		add(fore_parts,new_jump_parts(actor))
+		sfx(1)
 	end
-	sfx(1)
 end
 
 function bomb(actor, drop, up)
