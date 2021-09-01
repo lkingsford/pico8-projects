@@ -150,44 +150,52 @@ function update_actors()
 		init_x = a.x
 		init_y = a.y
 		-- Move. Doing multiple per frame.
-		if max(abs(a.dx), abs(a.dy)) > 0 then
-			local steps = 5
-			for i = 0, steps do
-				if not a.colx and abs(a.dy) > 0 and check_collide(a.x, a.y + a.dy / steps) then
-					a.coly = true
-					if a.dy >= 0 then
-						a.on_floor = true
-						a.jumps = 0
+		if a.held_by then
+			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
+			a.y = a.held_by.y - 3
+		else
+			if max(abs(a.dx), abs(a.dy)) > 0 then
+				local steps = 5
+				for i = 0, steps do
+					if not a.colx and abs(a.dy) > 0 and check_collide(a.x, a.y + a.dy / steps) then
+						a.coly = true
+						if a.dy >= 0 then
+							a.on_floor = true
+							a.jumps = 0
+						end
+						a.dy = 0
+					else
+						a.y += a.dy / steps
 					end
-					a.dy = 0
-				else
-					a.y += a.dy / steps
-				end
-				if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y) then
-					a.colx = true
-					a.dx = 0
-				else
-					a.x += a.dx / steps
+					if abs(a.dx) > 0 and check_collide(a.x + a.dx / steps, a.y) then
+						a.colx = true
+						a.dx = 0
+					else
+						a.x += a.dx / steps
+					end
 				end
 			end
+			if check_collide(a.x, a.y) then
+				-- Hack to deal with getting stuck
+				-- ... not happy that I need it
+				a.x = init_x
+				a.y = init_y
+				a.dy = 0
+				a.dx = 0
+				a.on_floor = true
+			end
+			-- Friction
+			if a.on_floor then
+				a.dx *= 0.8
+			end
+			if abs(a.dy) > 0.1 then a.on_floor = false end
+			-- Wraparound (breaks collision)
+			a.x = a.x % 128
+			a.y = a.y % 128
+			-- Gravity
+			a.dy = min(4,a.dy+0.3)
 		end
-		if check_collide(a.x, a.y) then
-			-- Hack to deal with getting stuck
-			-- ... not happy that I need it
-			a.x = init_x
-			a.y = init_y
-		end
-		-- Friction
-		if a.on_floor then
-			a.dx *= 0.8
-		end
-		if abs(a.dy) > 0 then a.on_floor = false end
 		a.logic(a)
-		-- Wraparound (breaks collision)
-		a.x = a.x % 128
-		a.y = a.y % 128
-		-- Gravity
-		a.dy = min(4,a.dy+0.3)
 	end
 end
 
@@ -215,7 +223,18 @@ function player(actor)
 		jump(actor)
 	end
 	if o then
-		bomb(actor, d, u)
+		local ground_item = check_ground(actor)
+		if actor.holding then
+			if d then
+				drop_item(actor)
+			else
+				throw_item(actor)
+			end
+		elseif ground_item and d then
+			pick_item(actor, ground_item)
+		else
+			bomb(actor, d, u)
+		end
 	end
 	if abs(actor.dx) > 0.1 and actor.on_floor then
 		if (stat(17) != 3) then
@@ -224,6 +243,36 @@ function player(actor)
 	else
 		sfx(3, -2)
 	end
+end
+
+function check_ground(actor)
+	local i = 0
+	for a in all(actors) do
+		i += 1
+		if actor != a and distance(a.dx,a.dy) < 1 and distance(a.x, a.y, actor.x, actor.y) < 4 and not a.held_by then
+			return a
+		end
+	end
+end
+
+function drop_item(a)
+	local item = a.holding
+	a.holding.held_by = nil
+	a.holding = nil
+	item.dx = sgn(a.dx) * 3
+	item.dy = 0
+end
+
+function pick_item(a, item)
+	item.held_by = a
+	a.holding = item
+end
+
+function throw_item(a, b)
+	b = b or a.holding
+	b.held_by = nil
+	b.dx = a.dx + sgn(a.dx) * 3
+	b.dy = a.dy - 3
 end
 
 function jump(actor)
@@ -253,8 +302,7 @@ function bomb(actor, drop, up)
 		b.dy = actor.dy - 6
 		add_screen_shake(0.5,1)
 	else
-		b.dx = actor.dx + sgn(actor.dx) * 3
-		b.dy = actor.dy - 3
+		throw_item(actor, b)
 		add_screen_shake(0.5,1)
 	end
 	b.wick = {{2,1},{3,1},{4,2},{4,3}}
@@ -269,6 +317,8 @@ function bomb(actor, drop, up)
 end
 
 function distance(x1, y1, x2, y2)
+	x2 = x2 or 0
+	y2 = y2 or 0
 	return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
 end
 
@@ -296,6 +346,9 @@ end
 
 function exploded(b)
 	-- Make bomb explode just a frame after the one next to it doees
+	if b.held_by then
+		b.held_by.holding = nil
+	end
 	b.dy += rnd(0.5)
 	b.dx += rnd(0.5)
 	b.t = 3
