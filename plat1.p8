@@ -7,6 +7,7 @@ __lua__
 function _draw()
 	camera()
 	cls()
+	clock_32 = (clock_32 + 1) % 32
 	update_part()
 	update_shake()
 	draw_back()
@@ -28,7 +29,12 @@ end
 function draw_actors()
 	for a in all(actors) do
 		if fget(a.sprite, 0) then -- x dependent animated
-			a.sprite = 2 + (a.x/4 + anim_f) % 2
+			base_sprite = flr(a.sprite / 2) * 2
+			if a.knocked <= 0 then
+				a.sprite = base_sprite + (a.x/4 + anim_f) % 2
+			else
+				a.sprite = base_sprite
+			end
 		end
 		local w = a.w or 1
 		local h = a.h or 1
@@ -43,6 +49,9 @@ function draw_actors()
 		a.draw_logic(a)
 		a.colx = false
 		a.coly = false
+		if a.knocked > 0 then
+			spr(80 + (clock_32/4)%4, a.x, a.y)
+		end
 	end
 end
 
@@ -201,6 +210,10 @@ end
 
 function player(actor)
 	-- Logic for any player
+	if actor.knocked > 0 then
+		actor.knocked -= 1
+		return
+	end
 	local p = actor.player
 	local l = btn(0, p)
 	local r = btn(1, p)
@@ -381,6 +394,9 @@ function explode(b)
 			if a.exploded then
 				a.exploded(a)
 			end
+			if a.knocked >= 0 then
+				a.knocked = 30 -- Knocked out if boomed
+			end
 		end
 	end end
 
@@ -524,6 +540,7 @@ function new_actor(sprite, logic, draw_logic)
 	a.y = 0
 	a.dx = 0
 	a.dy = 0
+	a.knocked = -1 -- -1 means never knocked out
 	return a
 end
 
@@ -548,26 +565,38 @@ function load_map(map_id)
 			p0.y = iy * 8 - 1
 		elseif mget(ix, iy) == 18 then
 			mset(ix, iy, 0)
-			--p1.x = ix * 8
-			--p1.y = iy * 8
+			p1.x = ix * 8
+			p1.y = iy * 8 - 1
 		end
 	end end
 end
 
 function _init()
-	p0 = new_actor(18, player)
+	p0 = new_actor(2, player)
 	p0.x = 10
 	p0.y = 40
 	p0.player = 0
 	p0.jumps = 0
+	p0.knocked = 0
+	actors={p0}
+
+	p1 = new_actor(18, player)
+	p1.x = 10
+	p1.y = 40
+	p1.player = 1
+	p1.jumps = 0
+	p1.knocked = 0
+	add(actors, p1)
+
 	anim_t = 8
 	anim_f = 0
 	init_back()
-	load_map(1)
+	load_map(0)
 	init_map()
 	fore_parts = {}
-	actors={p0}
 	shakes = {}
+
+	clock_32 = 0
 end
 
 __gfx__
@@ -611,6 +640,12 @@ __gfx__
 0288820001ccc1000015556000288870000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00288000001cc00000155550002888e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00020000000100000001150000022e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0007c07000c07c000007c0000007c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000c070000c000c0c00000c0c00c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00c00c000000007007c00c7000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+007007c00c700c0000c700c00000c700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000c000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000077777700777777007777770077777700777777007777770077777700777777000000000000000000000000000000000
 00000000000000000000000000000000566666675666666756666667566666675666666756666667566666675666666700000000000000000000000000000000
