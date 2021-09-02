@@ -228,7 +228,7 @@ function player(actor)
 			if d then
 				drop_item(actor)
 			else
-				throw_item(actor)
+				throw_item(actor, actor.holding, u)
 			end
 		elseif ground_item and d then
 			pick_item(actor, ground_item)
@@ -259,7 +259,7 @@ function drop_item(a)
 	local item = a.holding
 	a.holding.held_by = nil
 	a.holding = nil
-	item.dx = sgn(a.dx) * 3
+	item.dx = sgn(a.dx) * .5
 	item.dy = 0
 end
 
@@ -268,11 +268,14 @@ function pick_item(a, item)
 	a.holding = item
 end
 
-function throw_item(a, b)
+function throw_item(a, b, up)
 	b = b or a.holding
 	b.held_by = nil
 	b.dx = a.dx + sgn(a.dx) * 3
 	b.dy = a.dy - 3
+	if up then
+		b.dy -= 3
+	end
 end
 
 function jump(actor)
@@ -295,14 +298,10 @@ function bomb(actor, drop, up)
 	b.x = actor.x
 	b.y = actor.y
 	if drop then
-		b.dx = actor.dx
-		b.dy = actor.dy
-	elseif up then
-		b.dx = actor.dx + sgn(actor.dx) * 3
-		b.dy = actor.dy - 6
-		add_screen_shake(0.5,1)
+		pick_item(actor, b)
+		drop_item(actor)
 	else
-		throw_item(actor, b)
+		throw_item(actor, b, up)
 		add_screen_shake(0.5,1)
 	end
 	b.wick = {{2,1},{3,1},{4,2},{4,3}}
