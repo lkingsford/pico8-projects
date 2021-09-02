@@ -158,11 +158,11 @@ function update_actors()
 	for a in all(actors) do
 		init_x = a.x
 		init_y = a.y
-		-- Move. Doing multiple per frame.
 		if a.held_by then
 			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
 			a.y = a.held_by.y - 3
 		else
+			-- Move. Doing multiple per frame.
 			if max(abs(a.dx), abs(a.dy)) > 0 then
 				local steps = 5
 				for i = 0, steps do
@@ -193,6 +193,25 @@ function update_actors()
 				a.dx = 0
 				a.on_floor = true
 			end
+			if a.recent_thrower != nil then
+				a.throw_time -= 1
+				if a.throw_time == 0 then a.recent_thrower = nil end
+			end
+			-- Check if hit another actor that can be knocked out
+			if a.knocked < 0 then
+				for i in all(actors) do
+					if i != a and i.knocked >= 0 then
+						local speed = distance(a.dx, a.dy)
+						if distance(i.x, i.y, a.x, a.y) < 12 and speed > 0 and a.recent_thrower != i then
+							i.dx += a.dx
+							i.dy += a.dy
+							i.knocked += 15
+							a.dx = 0
+							a.dy = 0
+						end
+					end
+				end
+			end
 			-- Friction
 			if a.on_floor then
 				a.dx *= 0.8
@@ -211,7 +230,7 @@ end
 function player(actor)
 	-- Logic for any player
 	if actor.knocked > 0 then
-		actor.knocked -= 1
+		actor.knocked = max(actor.knocked - 1, 0)
 		return
 	end
 	local p = actor.player
@@ -274,6 +293,8 @@ function drop_item(a)
 	a.holding = nil
 	item.dx = sgn(a.dx) * .5
 	item.dy = 0
+	item.recent_thrower = a
+	item.throw_time = 0.5
 end
 
 function pick_item(a, item)
@@ -287,6 +308,8 @@ function throw_item(a, b, up)
 	a.holding = nil
 	b.dx = a.dx + sgn(a.dx) * 3
 	b.dy = a.dy - 3
+	b.recent_thrower = a
+	b.throw_time = 0.5
 	if up then
 		b.dy -= 3
 	end
@@ -358,10 +381,10 @@ function remove_grass(ix, iy)
 end
 
 function exploded(b)
-	-- Make bomb explode just a frame after the one next to it doees
 	if b.held_by then
 		b.held_by.holding = nil
 	end
+	-- Make bomb explode just a frame after the one next to it doees
 	b.dy += rnd(0.5)
 	b.dx += rnd(0.5)
 	b.t = 3
