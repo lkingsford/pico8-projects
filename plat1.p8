@@ -198,17 +198,15 @@ function update_actors()
 				if a.throw_time == 0 then a.recent_thrower = nil end
 			end
 			-- Check if hit another actor that can be knocked out
-			if a.knocked < 0 then
-				for i in all(actors) do
-					if i != a and i.knocked >= 0 then
-						local speed = distance(a.dx, a.dy)
-						if distance(i.x, i.y, a.x, a.y) < 12 and speed > 0 and a.recent_thrower != i then
-							i.dx += a.dx
-							i.dy += a.dy
-							i.knocked += 15
-							a.dx = 0
-							a.dy = 0
-						end
+			for i in all(actors) do
+				if i != a and i.knocked >= 0 and a.knocked < 0 then
+					local speed = distance(a.dx, a.dy)
+					if distance(i.x, i.y, a.x, a.y) < 12 and speed > 0 and a.recent_thrower != i then
+						i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
+						i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
+						i.knocked += 15
+						a.dx = 0
+						a.dy = 0
 					end
 				end
 			end
@@ -348,6 +346,7 @@ function bomb(actor, drop, up)
 	b.t_next_wick = b.t_per_wick
 	b.r = 2.5
 	b.exploded = exploded
+	b.weight=.75
 	add(actors, b)
 	sfx(2)
 end
@@ -564,6 +563,7 @@ function new_actor(sprite, logic, draw_logic)
 	a.dx = 0
 	a.dy = 0
 	a.knocked = -1 -- -1 means never knocked out
+	a.weight = 1
 	return a
 end
 
