@@ -147,11 +147,34 @@ end
 
 function _update()
 	update_actors()
+	update_sounds()
 end
 
 function near_int(x)
 	if sgn(x % 1 - 0.5) > 0 then return ceil(x) end
 	return flr(x)
+end
+
+function update_sounds()
+	local walkers = 0
+	for i in all(actors) do
+		if i.walking_sound == true then
+			walkers += 1
+		end
+	end
+	if last_walkers != walkers then
+		if walkers == 1 then
+			sfx(3, 1)
+			sfx(4, -2)
+		elseif walkers > 1 then
+			sfx(4, 1)
+			sfx(3, -2)
+		else
+			sfx(4, -2)
+			sfx(3, -2)
+		end
+	end
+	last_walkers = walkers
 end
 
 function update_actors()
@@ -199,12 +222,12 @@ function update_actors()
 			end
 			-- Check if hit another actor that can be knocked out
 			for i in all(actors) do
-				if i != a and i.knocked >= 0 and a.knocked < 0 then
+				if i != a and i.knocked >= 0 and a.knocked != 0 then
 					local speed = distance(a.dx, a.dy)
 					if distance(i.x, i.y, a.x, a.y) < 12 and speed > 0 and a.recent_thrower != i then
 						i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
 						i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
-						i.knocked += 15
+						i.knocked += 20
 						a.dx = 0
 						a.dy = 0
 					end
@@ -266,12 +289,10 @@ function player(actor)
 			bomb(actor, d, u)
 		end
 	end
-	if abs(actor.dx) > 0.1 and actor.on_floor then
-		if (stat(17) != 3) then
-			sfx(3, 1)
-		end
+	if abs(actor.dx) > 0.5 and actor.on_floor then
+		actor.walking_sound = true
 	else
-		sfx(3, -2)
+		actor.walking_sound = false
 	end
 end
 
@@ -293,6 +314,10 @@ function drop_item(a)
 	item.dy = 0
 	item.recent_thrower = a
 	item.throw_time = 0.5
+	if check_collide(item.x, item.y) then
+		item.x = a.x
+		item.y = a.y
+	end
 end
 
 function pick_item(a, item)
@@ -325,6 +350,12 @@ function jump(actor)
 		actor.jumps = 2
 		add(fore_parts,new_jump_parts(actor))
 		sfx(1)
+	elseif actor.held_by then
+		actor.dy = -jump
+		actor.jumps = 2
+		actor.held_by.holding = nil
+		actor.held_by = nil
+		sfx(1)
 	end
 end
 
@@ -346,7 +377,7 @@ function bomb(actor, drop, up)
 	b.t_next_wick = b.t_per_wick
 	b.r = 2.5
 	b.exploded = exploded
-	b.weight=.75
+	b.weight=1
 	add(actors, b)
 	sfx(2)
 end
@@ -620,6 +651,7 @@ function _init()
 	shakes = {}
 
 	clock_32 = 0
+	last_walkers = 0
 end
 
 __gfx__
@@ -824,4 +856,4 @@ __sfx__
 000100000d0300c0300c0300b0300b0400b0400c0400e040100401104014050160501b0501d050141001a100241001a1001f10026100291002b20000000000000000000000000000000000000000000000000000
 00010000391502f15020150171500e150056500565003650006500065000650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000500071763000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500051d630000000e6301c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
