@@ -271,6 +271,7 @@ end
 function throw_item(a, b, up)
 	b = b or a.holding
 	b.held_by = nil
+	a.holding = nil
 	b.dx = a.dx + sgn(a.dx) * 3
 	b.dy = a.dy - 3
 	if up then
