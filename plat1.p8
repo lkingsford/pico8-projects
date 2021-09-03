@@ -36,21 +36,27 @@ function draw_actors()
 				a.sprite = base_sprite
 			end
 		end
+		local y_adj = 0
+		local flip = a.flip
+		if a.held_by then
+			y_adj = -(a.x/4 + anim_f) % 2
+			flip = a.held_by.flip
+		end
 		local w = a.w or 1
 		local h = a.h or 1
-		spr(a.sprite, a.x + 1, a.y + 1,w,h,a.flip)
+		spr(a.sprite, a.x + 1, a.y + 1 + y_adj,w,h,flip)
 		-- Draw wraparound
 		if (a.x > 120) then
-			spr(a.sprite, a.x + 1- 127, 1 + a.y,w,h,a.flip)
+			spr(a.sprite, a.x + 1- 127 + y_adj, 1 + a.y,w,h,flip)
 		end
 		if (a.y > 120) then
-			spr(a.sprite, a.x + 1, 1 + a.y - 127,w,h,a.flip)
+			spr(a.sprite, a.x + 1, 1 + a.y  + y_adj - 127,w,h,flip)
 		end
 		a.draw_logic(a)
 		a.colx = false
 		a.coly = false
 		if a.knocked > 0 then
-			spr(80 + (clock_32/4)%4, a.x, a.y)
+			spr(80 + (clock_32/4)%4, a.x, a.y + y_adj)
 		end
 	end
 end
@@ -208,6 +214,9 @@ function update_actors()
 					end
 				end
 			end
+			if (a.colx or a.coly) and a.collide then
+				a.collide(a)
+			end
 			if check_collide(a.x, a.y) then
 				-- Hack to deal with getting stuck
 				-- ... not happy that I need it
@@ -226,6 +235,7 @@ function update_actors()
 				if i != a and a.knocked != 0 then
 					local speed = distance(a.dx, a.dy)
 					if distance(i.x, i.y, a.x, a.y) < 8 and speed > 0 and a.recent_thrower != i then
+						a.collide(a)
 						i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
 						i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
 						if i.knocked >= 0 then
@@ -248,7 +258,9 @@ function update_actors()
 			a.x = a.x % 128
 			a.y = a.y % 128
 			-- Gravity
-			a.dy = min(4,a.dy+0.3)
+			if a.gravity then
+				a.dy = min(4,a.dy+0.3)
+			end
 		end
 		a.logic(a)
 	end
@@ -614,7 +626,7 @@ function open_crate(crate)
 	del(actors, crate)
 
 	-- Create spawned item
-	local item = rnd({holy_hand_grenade})()
+	local item = launcher()--rnd({launcher, holy_hand_grenade})()
 	item.x = crate.x
 	item.y = crate.y
 	if crate.held_by then
@@ -651,6 +663,31 @@ function holy_hand_grenade_action(b, up, down)
 	sfx(6)
 end
 
+function launcher()
+	local i = new_actor(85)
+	i.action = launcher_action
+	return i
+end
+
+function launcher_action(b, up, down)
+	local i = new_actor(86)
+	i.direction = sgn(b.held_by.dx)
+	i.flip = i.direction < 0
+	i.dx = sgn(b.held_by.dx)
+	i.x = b.x + i.dx * 8
+	i.y = b.y + 1
+	i.h = 5
+	i.r = 2.5
+	i.logic = missile_update
+	i.gravity = false
+	i.collide = explode
+	add(actors, i)
+end
+
+function missile_update(m)
+	m.dx = m.direction * abs(mid(1, abs(m.dx) + .5, 12))
+end
+
 function init_back()
 	back_part={}
 	for i = 0,50 do
@@ -681,12 +718,14 @@ function new_actor(sprite, logic, draw_logic)
 	a.sprite_0 = sprite
 	a.logic = logic
 	a.draw_logic = draw_logic
+	a.collide = none
 	a.x = 0
 	a.y = 0
 	a.dx = 0
 	a.dy = 0
 	a.knocked = -1 -- -1 means never knocked out
 	a.weight = 1
+	a.gravity = true
 	return a
 end
 
@@ -745,7 +784,7 @@ function _init()
 	anim_t = 8
 	anim_f = 0
 	init_back()
-	load_map(1)
+	load_map(0)
 	fore_parts = {}
 	shakes = {}
 
@@ -799,9 +838,11 @@ __gfx__
 0000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0007c07000c07c000007c0000007c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000c070000c000c0c00000c0c00c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00c00c000000007007c00c7000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-007007c00c700c0000c700c00000c700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000c000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00c00c000000007007c00c7000700000000000000001000060000000000000000000000000000000000000000000000000000000000000000000000000000000
+007007c00c700c0000c700c00000c700000000007676767886565ee0000000000000000000000000000000000000000000000000000000000000000000000000
+00000c000000000000c000000000000000000000565656568555588e000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000011000085252880000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000110000020000000000000000000000000000000000000000000000000000000000000000000000000000000
 __label__
 00000000000000000000000000000000077777700777777007777770077777700777777007777770077777700777777000000000000000000000000000000000
 00000000000000000000000000000000566666675666666756666667566666675666666756666667566666675666666700000000000000000000000000000000
