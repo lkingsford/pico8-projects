@@ -285,7 +285,7 @@ function player(actor)
 		local ground_item = check_ground(actor)
 		if actor.holding then
 			if actor.holding.action then
-				actor.holding.action(actor.holding, u)
+				actor.holding.action(actor.holding, u, d)
 			elseif d then
 				drop_item(actor)
 			else
@@ -462,15 +462,15 @@ function explode(b)
 	end end
 
 	-- These are for the boom boom effects
-	local high = 12
+	local high = b.r * 4
 	local low = 0
 	local theta = 0
-	for i = high, low, -0.25 do
+	for i = high, low, -0.05 do
 		local p = {}
 		p.draw = draw_explode_part
 		p.update = update_basic_part
-		p.x = b.x + rnd(i/2) - (i/4)
-		p.y = b.y + rnd(i/2) - (i/4)
+		p.x = b.x + rnd(b.r * 2) - (b.r)
+		p.y = b.y + rnd(b.r * 2) - (b.r)
 		p.x2 = rnd(1) - .5
 		p.y2 = rnd(1) - .5
 		p.r = rnd(high - i) / 2
@@ -533,11 +533,11 @@ function bomb_draw(b)
 
 	-- Flashing bomb
 	if b.t > b.max_t/3 and b.t < (b.max_t / 3) * 2 then
-		b.sprite = 66 + (b.t / 5) % 2
+		b.sprite = b.sprite_0 + (b.t / 5) % 2
 	elseif b.t > 10 and b.t < b.max_t / 3 then
-		b.sprite = 66 + (b.t / 2) % 2
+		b.sprite = b.sprite_0 + (b.t / 2) % 2
 	elseif b.t < 10 then
-		b.sprite = 67
+		b.sprite = b.sprite_0
 	end
 end
 
@@ -571,7 +571,7 @@ function update_spawn()
 		spawn.loc = rnd(crate_spawns)
 		spawn.time = rnd(60)+30
 		add(spawns, spawn)
-		next_spawn = rnd(150) -- Up to five seconds before next one
+		next_spawn = 150+rnd(150) -- 5-10 seconds before next one
 	end
 	for s in all(spawns) do
 		s.time -= 1
@@ -612,9 +612,43 @@ end
 
 function open_crate(crate)
 	del(actors, crate)
+
+	-- Create spawned item
+	local item = rnd({holy_hand_grenade})()
+	item.x = crate.x
+	item.y = crate.y
 	if crate.held_by then
 		crate.held_by.holding = nil
+		item.held_by = crate.held_by
+		item.held_by.holding = item
 	end
+	add(actors, item)
+end
+
+function holy_hand_grenade()
+	local i = new_actor(69)
+	i.action = holy_hand_grenade_action
+	return i
+end
+
+function holy_hand_grenade_action(b, up, down)
+	b.logic = bomb_update
+	b.draw_logic = bomb_draw
+	b.t = 60
+	b.max_t = b.t
+	if not down then
+		throw_item(b.held_by, b, up)
+	else
+		drop_item(b.held_by, b, down)
+	end
+	b.wick = {{2,1},{3,1},{4,2},{4,3}}
+	b.map_t = t
+	b.t_per_wick = b.t/#b.wick
+	b.t_next_wick = b.t_per_wick
+	b.r = 4
+	b.exploded = exploded
+	b.weight=2
+	sfx(2)
 end
 
 function init_back()
@@ -644,6 +678,7 @@ function new_actor(sprite, logic, draw_logic)
 	draw_logic = draw_logic or none
 	local a = {}
 	a.sprite = sprite
+	a.sprite_0 = sprite
 	a.logic = logic
 	a.draw_logic = draw_logic
 	a.x = 0
@@ -710,7 +745,7 @@ function _init()
 	anim_t = 8
 	anim_f = 0
 	init_back()
-	load_map(0)
+	load_map(1)
 	fore_parts = {}
 	shakes = {}
 
