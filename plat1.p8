@@ -223,17 +223,19 @@ function update_actors()
 			end
 			-- Check if hit another actor that can be knocked out
 			for i in all(actors) do
-				if i != a and i.knocked >= 0 and a.knocked != 0 then
+				if i != a and a.knocked != 0 then
 					local speed = distance(a.dx, a.dy)
-					if distance(i.x, i.y, a.x, a.y) < 12 and speed > 0 and a.recent_thrower != i then
+					if distance(i.x, i.y, a.x, a.y) < 8 and speed > 0 and a.recent_thrower != i then
 						i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
 						i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
-						i.knocked += 20
+						if i.knocked >= 0 then
+							i.knocked += 20
+							sfx(5)
+						end
 						a.dx = 0
 						a.dy = 0
 						a.recent_thrower = i
 						a.throw_time = 45
-						sfx(5)
 					end
 				end
 			end
@@ -282,7 +284,9 @@ function player(actor)
 	if o then
 		local ground_item = check_ground(actor)
 		if actor.holding then
-			if d then
+			if actor.holding.action then
+				actor.holding.action(actor.holding, u)
+			elseif d then
 				drop_item(actor)
 			else
 				throw_item(actor, actor.holding, u)
@@ -576,6 +580,8 @@ function update_spawn()
 			local a = new_actor(68, crate_logic)
 			a.x = s.loc.x * 8
 			a.y = s.loc.y * 8
+			a.exploded = crate_exploded
+			a.action = crate_action
 			add(actors, a)
 		end
 		-- Draw more particles as getting closer
@@ -596,8 +602,19 @@ function update_spawn()
 	end
 end
 
-function crate_logic(c)
+function crate_exploded(crate)
+	open_crate(crate)
+end
 
+function crate_action(crate, d)
+	open_crate(crate)
+end
+
+function open_crate(crate)
+	del(actors, crate)
+	if crate.held_by then
+		crate.held_by.holding = nil
+	end
 end
 
 function init_back()
