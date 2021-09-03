@@ -86,6 +86,7 @@ function draw_fore_parts()
 		p.draw(p)
 		if p.x > 128 or p.y > 128 or p.x < 0 or p.y < 0 or p.t < 0 then del(fore_parts, p) end
 	end
+	print(#fore_parts,8,0,10)
 end
 
 function new_jump_parts(a)
@@ -477,7 +478,7 @@ function explode(b)
 	local high = b.r * 4
 	local low = 0
 	local theta = 0
-	for i = high, low, -0.05 do
+	for i = high, low, -0.5 do
 		local p = {}
 		p.draw = draw_explode_part
 		p.update = update_basic_part
@@ -485,7 +486,7 @@ function explode(b)
 		p.y = b.y + rnd(b.r * 2) - (b.r)
 		p.x2 = rnd(1) - .5
 		p.y2 = rnd(1) - .5
-		p.r = rnd(high - i) / 2
+		p.r = i
 		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
 		p.c2 = rnd({7,8,8,9,9,9,10,10,10,10})
 		theta = atan2(b.x-p.x, b.y-p.y)
