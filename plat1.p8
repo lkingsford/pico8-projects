@@ -343,7 +343,13 @@ end
 
 function jump(actor)
 	local jump = 4
-	if actor.on_floor then
+	if actor.held_by then
+		actor.dy = -jump
+		actor.jumps = 2
+		actor.held_by.holding = nil
+		actor.held_by = nil
+		sfx(1)
+	elseif actor.on_floor then
 		actor.dy = -jump
 		actor.on_floor = false
 		actor.jumps = 1
@@ -352,12 +358,6 @@ function jump(actor)
 		actor.dy = -jump
 		actor.jumps = 2
 		add(fore_parts,new_jump_parts(actor))
-		sfx(1)
-	elseif actor.held_by then
-		actor.dy = -jump
-		actor.jumps = 2
-		actor.held_by.holding = nil
-		actor.held_by = nil
 		sfx(1)
 	end
 end
@@ -415,7 +415,7 @@ end
 
 function exploded(b)
 	if b.held_by then
-		b.held_by.holding = nil
+		drop(b)
 	end
 	-- Make bomb explode just a frame after the one next to it doees
 	b.dy += rnd(0.5)
