@@ -626,7 +626,7 @@ function open_crate(crate)
 	del(actors, crate)
 
 	-- Create spawned item
-	local item = launcher()--rnd({launcher, holy_hand_grenade})()
+	local item = rnd({launcher, holy_hand_grenade})()
 	item.x = crate.x
 	item.y = crate.y
 	if crate.held_by then
@@ -670,6 +670,10 @@ function launcher()
 end
 
 function launcher_action(b, up, down)
+	if down then
+		drop_item(b.held_by, b)
+		return
+	end
 	local i = new_actor(86)
 	i.direction = sgn(b.held_by.dx)
 	i.flip = i.direction < 0
@@ -686,6 +690,21 @@ end
 
 function missile_update(m)
 	m.dx = m.direction * abs(mid(1, abs(m.dx) + .5, 12))
+	-- Particles
+	-- (should probable function this)
+	for a = 0, 4 do
+		p = {}
+		p.draw = draw_basic_part
+		p.update = update_basic_part
+		p.x = m.x - m.direction*3
+		p.y = m.y + 4
+		p.dx = rnd(2)-1
+		p.dy = rnd(2)-1
+		p.c = rnd({7,8,9})
+		p.gravity = false
+		p.t = 10
+		add(fore_parts, p)
+	end
 end
 
 function init_back()
