@@ -86,26 +86,15 @@ function _draw_game()
 	cls()
 	camera()
 	clock_32 = (clock_32 + 1) % 32
-	update_part()
 	update_shake()
-	draw_back()
+	draw_parts(back_parts)
 	draw_map()
 	draw_actors()
-	draw_fore_parts()
+	draw_parts(fore_parts)
 	camera()
 	draw_round()
 	if round_ended then
 		center_print(round_end_text,64,64,round_end_color)
-	end
-end
-
-function draw_back()
-	if flash then
-		rectfill(0,0,127,127,1)
-		flash = false
-	end
-	for p in all(back_part) do
-		pset(p.x, p.y, p.c)
 	end
 end
 
@@ -163,15 +152,22 @@ function draw_map()
 	map()
 end
 
-function draw_fore_parts()
-	for p in all(fore_parts) do
+function draw_parts(part_list)
+	for p in all(part_list) do
 		p.update(p)
 		p.draw(p)
-		if p.x > 128 or p.y > 128 or p.x < 0 or p.y < 0 or p.t < 0 then del(fore_parts, p) end
+		if p.x > 128 or p.y > 128 or p.x < 0 or p.y < 0 or p.t < 0 then
+			if p.wrap then
+				p.x = p.x % 128
+				p.y = p.y % 128
+			else
+				del(fore_parts, p)
+			end
+		end
 	end
 end
 
-function basic_part(x,y,t,c,dx,dy,gravity)
+function basic_part(x,y,t,c,dx,dy,gravity,wrap)
 	local p = {}
 	p.draw = draw_basic_part
 	p.update = update_basic_part
@@ -181,6 +177,7 @@ function basic_part(x,y,t,c,dx,dy,gravity)
 	p.c = c
 	p.dx = dx or rnd(2)-1
 	p.dy = dy or rnd(2)-1
+	p.wrap = wrap
 	if gravity == nil then p.gravity = true else p.gravity = gravity end
 	return p
 end
@@ -202,20 +199,6 @@ function update_basic_part(p)
 	if p.gravity then
 		p.dy += 0.1
 		p.dy = min(p.dy,3)
-	end
-end
-
-function update_part()
-	-- Actually done during draw
-	for p in all(back_part) do
-		p.x += p.dx
-		p.dy += 0.005 --grav
-		p.dy = min(p.dy,1)
-		p.y += p.dy
-		if max(p.x,p.y) > 128 then
-			del(back_part,p)
-			add(back_part,new_back_part(0))
-		end
 	end
 end
 
@@ -555,20 +538,18 @@ function update_spawn()
 		s.time -= 1
 		if s.time <= 0 then
 			del(spawns, s)
+			local a
 			if not to_spawn then
-				local a = new_actor(68, crate_logic)
-				a.x = s.loc.x * 8
-				a.y = s.loc.y * 8
+				a = new_actor(68, crate_logic)
 				a.exploded = crate_exploded
 				a.action = crate_action
-				add(actors, a)
 			else
-				local a = to_spawn()
-				a.x = s.loc.x * 8
-				a.y = s.loc.y * 8
-				add(actors, a)
+				a = to_spawn()
 				to_spawn = nil
 			end
+			a.x = s.loc.x * 8
+			a.y = s.loc.y * 8
+			add(actors, a)
 		end
 		if flr(s.time) == 15 then
 			sfx(8)
@@ -587,52 +568,48 @@ function update_spawn()
 end
 
 function init_back()
-	back_part={}
+	back_parts={}
 	for i = 0,50 do
-		add(back_part,new_back_part())
+		add(back_parts, new_back_part())
 	end
 end
 
 function new_back_part(x)
- x = x or rnd(128)
-	return part(x,rnd(128),rnd(2), rnd(.05)-.025, rnd({1,1,1,1,5,5,5,5,6,6,7}))
-end
-
-function part(x,y,dx,dy,c)
-	local p = {}
-	p.x=x
-	p.y=y
-	p.dx=dx
-	p.dy=dy
-	p.c=c
-	return p
+	return basic_part(
+			x or rnd(128),--x
+			rnd(128),--y
+			nil,
+			rnd({1,1,1,1,5,5,5,5,6,6,7}),--c
+			rnd(1),--dx
+			rnd(.25)-.025,--dy
+			false,--gravity
+			true--wrap
+		)
 end
 
 function new_actor(sprite, logic, draw_logic)
-	logic = logic or none
-	draw_logic = draw_logic or none
-	local a = {}
-	a.sprite = sprite
-	a.sprite_0 = sprite
-	a.logic = logic
-	a.draw_logic = draw_logic
-	a.collide = none
-	a.x = 0
-	a.y = 0
-	a.dx = 0
-	a.dy = 0
-	a.extra_hit_dx = 0
-	a.extra_hit_dy = 0
-	a.knocked = -1 -- -1 means never knocked out
-	a.weight = 1
-	a.jumps = 0
-	a.gravity = true
-	a.hp = 0
-	a.exploded = exploded
-	a.explosion_damage = 10
-	a.hit_damage = 1
-	a.capture_time = -1
-	return a
+	return {
+		sprite = sprite,
+		sprite_0 = sprite,
+		logic = logic or none,
+		draw_logic = draw_logic or none,
+		collide = none,
+		x = 0,
+		y = 0,
+		dx = 0,
+		dy = 0,
+		extra_hit_dx = 0,
+		extra_hit_dy = 0,
+		knocked = -1, -- -1 means never knocked out
+		weight = 1,
+		jumps = 0,
+		gravity = true,
+		hp = 0,
+		exploded = exploded,
+		explosion_damage = 10,
+		hit_damage = 1,
+		capture_time = -1
+	}
 end
 
 function load_map(map_id)
