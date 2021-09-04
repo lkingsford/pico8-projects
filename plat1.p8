@@ -12,7 +12,7 @@ end
 
 function consts()
 	MAP_COUNT = 3
-	ITEMS = {lazgun, launched, holy_hand_grenade}
+	ITEMS = {lazgun, launcher, holy_hand_grenade}
 end
 
 -->8
