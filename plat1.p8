@@ -11,6 +11,7 @@ function _init()
 end
 
 function consts()
+	VERSION = "V0.1"
 	MAP_COUNT = 4
 	ITEMS = {lazgun, launcher, holy_hand_grenade}
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
@@ -38,6 +39,7 @@ function _draw_menu()
 		print(" 1P ", 32, 64, 10)
 		print("-2P-",80, 64, 8)
 	end
+	print(VERSION,105,115,7)
 end
 
 function _init_menu()
@@ -523,8 +525,8 @@ end
 
 function check_collide(x, y, w, h)
 	local collide = false
-	w = w or 8
-	h = h or 8
+	w = w or 7
+	h = h or 7
 	x = (x+1) % 128
 	y = (y+1) % 128
 
