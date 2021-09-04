@@ -13,6 +13,7 @@ end
 function consts()
 	MAP_COUNT = 3
 	ITEMS = {lazgun, launcher, holy_hand_grenade}
+	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
 end
 
 -->8
@@ -377,7 +378,7 @@ function player(actor)
 		elseif ground_item and d then
 			pick_item(actor, ground_item)
 		else
-			bomb(actor, d, u)
+			player_bomb(actor, d, u)
 		end
 	end
 	if abs(actor.dx) > 0.5 and actor.on_floor then
@@ -450,8 +451,8 @@ function jump(actor)
 	end
 end
 
-function bomb(actor, drop, up)
-	local b = new_actor(66,bomb_update,bomb_draw)
+function player_bomb(actor, drop, up)
+	local b = bomb(actor)
 	b.x = actor.x
 	b.y = actor.y
 	if drop then
@@ -461,14 +462,7 @@ function bomb(actor, drop, up)
 		throw_item(actor, b, up)
 		add_screen_shake(0.5,1)
 	end
-	b.wick = {{2,1},{3,1},{4,2},{4,3}}
-	b.t = 60
-	b.max_t = b.t
-	b.t_per_wick = b.t/#b.wick
-	b.t_next_wick = b.t_per_wick
-	b.r = 2.5
-	b.exploded = exploded
-	b.weight=1
+
 	add(actors, b)
 	sfx(2)
 end
@@ -477,151 +471,6 @@ function distance(x1, y1, x2, y2)
 	x2 = x2 or 0
 	y2 = y2 or 0
 	return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
-end
-
-function bomb_update(b)
-	b.t -= 1
-	b.t_next_wick -= 1
-	if b.t_next_wick <= 0 then
-		b.t_next_wick = b.t_per_wick
-		del(b.wick, b.wick[1])
-	end
-	if b.t <= 0 then
-		explode(b)
-	end
-end
-
-function remove_grass(ix, iy)
-	if mget(ix, iy) != 9 then return end
-	if mget(ix, iy - 1) == 10 or mget(ix, iy - 1) == 11 then
-		mset(ix, iy - 1, 0)
-	end
-	if mget(ix, iy + 1) == 25 then
-		mset(ix, iy + 1, 0)
-	end
-end
-
-function exploded(b)
-	if b.held_by then
-		drop_item(b.held_by)
-	end
-	-- Make bomb explode just a frame after the one next to it doees
-	b.dy += rnd(0.5)
-	b.dx += rnd(0.5)
-	b.t = 3
-end
-
-function explode(b)
-	del(actors, b)
-	local x = b.x / 8
-	local y = b.y / 8
-	for ix = x - b.r, x + b.r do
-	for iy = y - b.r, y + b.r do
-		if ceil(distance(x+0.5,y+0.5,ix,iy)) <= b.r then
-			if not fget(mget(ix,iy),1) then
-				remove_grass(ix, iy)
-				mset(ix, iy, 0)
-			end
-		end
-	end
-	end
-
-	-- Throw actors around
-	b.y  += 2-- Make sure it's a little down to push actor up
-	for a in all(actors) do
-	if b != a then
-		if distance(a.x, a.y, b.x, b.y) <= (b.r * 8 + 4) then
-			btheta = atan2(a.x-b.x, a.y-b.y)
-			local v = 10
-			a.dx += cos(btheta) * v + b.extra_hit_dx
-			a.dy += sin(btheta) * v + b.extra_hit_dy
-			if a.exploded then
-				a.exploded(a)
-			end
-			if a.knocked >= 0 then
-				a.knocked = 30 -- Knocked out if boomed
-			end
-		end
-	end end
-
-	-- These are for the boom boom effects
-	local high = b.r * 4
-	local low = 0
-	local theta = 0
-	for i = high, low, -0.5 do
-		local p = {}
-		p.draw = draw_explode_part
-		p.update = update_basic_part
-		p.x = b.x + rnd(b.r * 2) - (b.r)
-		p.y = b.y + rnd(b.r * 2) - (b.r)
-		p.x2 = rnd(1) - .5
-		p.y2 = rnd(1) - .5
-		p.r = i
-		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
-		p.c2 = rnd({7,8,8,9,9,9,10,10,10,10})
-		theta = atan2(b.x-p.x, b.y-p.y)
-		p.dx = i * sin(theta)
-		p.dy = i * cos(theta)
-		p.t = rnd(high-i) * 2
-		p.gravity = true
-		add(fore_parts, p)
-	end
-	for i = 0, 20 do
-		local p = {}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = b.x
-		p.y = b.y
-		p.c = rnd({7,8,8,9,9,9,10,10,10,10})
-		theta = rnd()
-		p.dx = i * sin(theta)
-		p.dy = i * cos(theta)
-		p.t = 999
-		p.gravity = true
-		add(fore_parts, p)
-	end
-
-	-- Sound
-	sfx(0)
-
-	flash = true
-	add_screen_shake(4, 1)
-end
-
-function draw_explode_part(p)
-	circfill(p.x, p.y, p.r, p.c)
-	circfill(p.x + p.x2, p.y + p.y2, p.r * .8, p.c2)
-end
-
-function bomb_draw(b)
-	if #b.wick == 0 then return end
-	for p in all(b.wick) do
-		pset(b.x + p[1], b.y + p[2], 4)
-	end
-
-	-- Spark
-	for i = 0,3 do
-		p={}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = b.wick[1][1] + b.x
-		p.y = b.wick[1][2] + b.y
-		p.t = 2
-		p.c = rnd({10,10,7})
-		p.dx = rnd(1)-.5
-		p.dy = rnd(1)-.5
-		p.gravity = true
-		add(fore_parts, p)
-	end
-
-	-- Flashing bomb
-	if b.t > b.max_t/3 and b.t < (b.max_t / 3) * 2 then
-		b.sprite = b.sprite_0 + (b.t / 5) % 2
-	elseif b.t > 10 and b.t < b.max_t / 3 then
-		b.sprite = b.sprite_0 + (b.t / 2) % 2
-	elseif b.t < 10 then
-		b.sprite = b.sprite_0
-	end
 end
 
 function none(actor)
@@ -727,6 +576,7 @@ function new_actor(sprite, logic, draw_logic)
 	a.extra_hit_dy = 0
 	a.knocked = -1 -- -1 means never knocked out
 	a.weight = 1
+	a.jumps = 0
 	a.gravity = true
 	return a
 end
@@ -785,18 +635,10 @@ end
 
 function _init_game(map)
 	p0 = new_actor(2, player)
-	p0.x = 10
-	p0.y = 40
-	p0.player = 0
-	p0.jumps = 0
 	p0.knocked = 0
 	actors={p0}
 
 	p1 = new_actor(18, player)
-	p1.x = 10
-	p1.y = 40
-	p1.player = 1
-	p1.jumps = 0
 	p1.knocked = 0
 	add(actors, p1)
 
@@ -816,6 +658,169 @@ end
 
 -->8
 --items
+function bomb()
+	b = new_actor(66,bomb_update,bomb_draw)
+	b.wick = wick()
+	b.t = 60
+	b.max_t = b.t
+	b.t_per_wick = b.t/#b.wick
+	b.t_next_wick = b.t_per_wick
+	b.r = 2.5
+	b.exploded = exploded
+	b.weight=1
+	return b
+end
+
+function wick()
+	return {{2,1},{3,1},{4,2},{4,3}}
+end
+
+function bomb_update(b)
+	b.t -= 1
+	b.t_next_wick -= 1
+	if b.t_next_wick <= 0 then
+		b.t_next_wick = b.t_per_wick
+		del(b.wick, b.wick[1])
+	end
+	if b.t <= 0 then
+		explode(b)
+	end
+end
+
+
+function exploded(b)
+	if b.held_by then
+		drop_item(b.held_by)
+	end
+	-- Make bomb explode just a frame after the one next to it doees
+	b.dy += rnd(0.5)
+	b.dx += rnd(0.5)
+	b.t = 3
+end
+
+function explode(b)
+	del(actors, b)
+	local x = b.x / 8
+	local y = b.y / 8
+	for ix = x - b.r, x + b.r do
+	for iy = y - b.r, y + b.r do
+		if ceil(distance(x+0.5,y+0.5,ix,iy)) <= b.r then
+			if not fget(mget(ix,iy),1) then
+				remove_grass(ix, iy)
+				mset(ix, iy, 0)
+			end
+		end
+	end
+	end
+
+	-- Throw actors around
+	b.y  += 2-- Make sure it's a little down to push actor up
+	for a in all(actors) do
+	if b != a then
+		if distance(a.x, a.y, b.x, b.y) <= (b.r * 8 + 4) then
+			btheta = atan2(a.x-b.x, a.y-b.y)
+			local v = 10
+			a.dx += cos(btheta) * v + b.extra_hit_dx
+			a.dy += sin(btheta) * v + b.extra_hit_dy
+			if a.exploded then
+				a.exploded(a)
+			end
+			if a.knocked >= 0 then
+				a.knocked = 30 -- Knocked out if boomed
+			end
+		end
+	end end
+
+	-- These are for the boom boom effects
+	local high = b.r * 4
+	local low = 0
+	local theta = 0
+	for i = high, low, -0.5 do
+		local p = {}
+		p.draw = draw_explode_part
+		p.update = update_basic_part
+		p.x = b.x + rnd(b.r * 2) - (b.r)
+		p.y = b.y + rnd(b.r * 2) - (b.r)
+		p.x2 = rnd(1) - .5
+		p.y2 = rnd(1) - .5
+		p.r = i
+		p.c = rnd(FIREY_PART_COLORS)
+		p.c2 = rnd(FIREY_PART_COLORS)
+		theta = atan2(b.x-p.x, b.y-p.y)
+		p.dx = i * sin(theta)
+		p.dy = i * cos(theta)
+		p.t = rnd(high-i) * 2
+		p.gravity = true
+		add(fore_parts, p)
+	end
+	for i = 0, 20 do
+		local p = {}
+		p.draw = draw_basic_part
+		p.update = update_basic_part
+		p.x = b.x
+		p.y = b.y
+		p.c = rnd(FIREY_PART_COLORS)
+		theta = rnd()
+		p.dx = i * sin(theta)
+		p.dy = i * cos(theta)
+		p.t = 999
+		p.gravity = true
+		add(fore_parts, p)
+	end
+
+	-- Sound
+	sfx(0)
+
+	flash = true
+	add_screen_shake(4, 1)
+end
+
+function draw_explode_part(p)
+	circfill(p.x, p.y, p.r, p.c)
+	circfill(p.x + p.x2, p.y + p.y2, p.r * .8, p.c2)
+end
+
+function bomb_draw(b)
+	if #b.wick == 0 then return end
+	for p in all(b.wick) do
+		pset(b.x + p[1], b.y + p[2], 4)
+	end
+
+	-- Spark
+	for i = 0,3 do
+		p={}
+		p.draw = draw_basic_part
+		p.update = update_basic_part
+		p.x = b.wick[1][1] + b.x
+		p.y = b.wick[1][2] + b.y
+		p.t = 2
+		p.c = rnd({10,10,7})
+		p.dx = rnd(1)-.5
+		p.dy = rnd(1)-.5
+		p.gravity = true
+		add(fore_parts, p)
+	end
+
+	-- Flashing bomb
+	if b.t > b.max_t/3 and b.t < (b.max_t / 3) * 2 then
+		b.sprite = b.sprite_0 + (b.t / 5) % 2
+	elseif b.t > 10 and b.t < b.max_t / 3 then
+		b.sprite = b.sprite_0 + (b.t / 2) % 2
+	elseif b.t < 10 then
+		b.sprite = b.sprite_0
+	end
+end
+
+function remove_grass(ix, iy)
+	if mget(ix, iy) != 9 then return end
+	if mget(ix, iy - 1) == 10 or mget(ix, iy - 1) == 11 then
+		mset(ix, iy - 1, 0)
+	end
+	if mget(ix, iy + 1) == 25 then
+		mset(ix, iy + 1, 0)
+	end
+end
+
 
 function crate_exploded(crate)
 	open_crate(crate)
@@ -841,8 +846,14 @@ function open_crate(crate)
 end
 
 function holy_hand_grenade()
-	local i = new_actor(69)
+	local i = bomb()
+	i.sprite = 69
+	i.sprite_0 = 69
+	i.logic = none
+	i.draw_logic = none
 	i.action = holy_hand_grenade_action
+	i.r = 4
+	i.weight = 2
 	return i
 end
 
@@ -856,13 +867,6 @@ function holy_hand_grenade_action(b, up, down)
 	else
 		drop_item(b.held_by, b, down)
 	end
-	b.wick = {{2,1},{3,1},{4,2},{4,3}}
-	b.map_t = t
-	b.t_per_wick = b.t/#b.wick
-	b.t_next_wick = b.t_per_wick
-	b.r = 4
-	b.exploded = exploded
-	b.weight=2
 	sfx(6)
 end
 
