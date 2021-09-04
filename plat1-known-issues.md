@@ -1,3 +1,7 @@
+# Absolutely required things:
+- Basic bot play
+- Win conditions
+- Health
 # Known issues and required enhancements
 - (BUG) Actors get stuck on their right edge
 - (BUG) Both players knocked repeatedly when both are touching item
