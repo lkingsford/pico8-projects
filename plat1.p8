@@ -171,19 +171,23 @@ function draw_fore_parts()
 	end
 end
 
+function basic_part(x,y,t,c,dx,dy,gravity)
+	local p = {}
+	p.draw = draw_basic_part
+	p.update = update_basic_part
+	p.x = x
+	p.y = y
+	p.t = t or 9999
+	p.c = c
+	p.dx = dx or rnd(2)-1
+	p.dy = dy or rnd(2)-1
+	if gravity == nil then p.gravity = true else p.gravity = gravity end
+	return p
+end
+
 function new_jump_parts(a)
 	for ix = a.x, a.x+8, 0.5 do
-		p = {}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = ix
-		p.y = a.y + 8
-		p.t = 9999
-		p.c = rnd({1,4,4,5,5,8,8,9,10})
-		p.dx = rnd(2)-1
-		p.dy = rnd(2)-1
-		p.gravity = true
-		add(fore_parts, p)
+		add(fore_parts, basic_part(ix, a.y+8, 30, rnd({1,4,4,5,5,8,8,9,10})))
 	end
 end
 
@@ -572,17 +576,12 @@ function update_spawn()
 		-- Draw more particles as getting closer
 		local to_draw = 2 + max(0, 60-s.time) / 5
 		for a = 0, to_draw do
-			p = {}
-			p.draw = draw_basic_part
-			p.update = update_basic_part
-			p.x = s.loc.x*8 + rnd(8)
-			p.y = s.loc.y*8 + rnd(8)
-			p.dx = rnd(2)-1
-			p.dy = rnd(2)-1
-			p.c = rnd({4,5,9,10,7})
-			p.gravity = true
-			p.t = 20
-			add(fore_parts, p)
+			add(fore_parts, basic_part(
+				s.loc.x*8+rnd(8), --x
+				s.loc.y*8+rnd(8), -- y
+				20, -- t
+				rnd({4,5,9,10,7})) --c
+				)
 		end
 	end
 end
@@ -1008,18 +1007,14 @@ function explode(b)
 		add(fore_parts, p)
 	end
 	for i = 0, 20 do
-		local p = {}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = b.x
-		p.y = b.y
-		p.c = rnd(FIREY_PART_COLORS)
-		theta = rnd()
-		p.dx = i * sin(theta)
-		p.dy = i * cos(theta)
-		p.t = 999
-		p.gravity = true
-		add(fore_parts, p)
+		add(fore_parts, basic_part(
+			b.x,--x
+			b.y,--y
+			nil,--t
+			rnd(FIREY_PART_COLORS),--c
+			i*sin(theta),--dx
+			i*cos(theta)--dy
+		))
 	end
 
 	-- Sound
@@ -1042,17 +1037,14 @@ function bomb_draw(b)
 
 	-- Spark
 	for i = 0,3 do
-		p={}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = b.wick[1][1] + b.x
-		p.y = b.wick[1][2] + b.y
-		p.t = 2
-		p.c = rnd({10,10,7})
-		p.dx = rnd(1)-.5
-		p.dy = rnd(1)-.5
-		p.gravity = true
-		add(fore_parts, p)
+		add(fore_parts, basic_part(
+			b.wick[1][1] + b.x,--x
+			b.wick[1][2] + b.y,--y
+			2,--t
+			rnd({10,10,7}),--c
+			rnd(1)-.5,--dx
+			rnd(1)-.5--dy
+		))
 	end
 
 	-- Flashing bomb
@@ -1152,19 +1144,16 @@ end
 function missile_update(m)
 	m.dx = m.direction * abs(mid(1, abs(m.dx) + .5, 12))
 	-- Particles
-	-- (should probable function this)
 	for a = 0, 4 do
-		p = {}
-		p.draw = draw_basic_part
-		p.update = update_basic_part
-		p.x = m.x - m.direction*3
-		p.y = m.y + 4
-		p.dx = rnd(2)-1
-		p.dy = rnd(2)-1
-		p.c = rnd({7,8,9})
-		p.gravity = false
-		p.t = 10
-		add(fore_parts, p)
+		add(fore_parts, basic_part(
+			m.x - m.direction * 3, --x
+			m.y + 4,--y
+			10,--t
+			rnd({7,8,9}),--c
+			nil,--dx
+			nil,--dy
+			false--gravity
+		))
 	end
 end
 
