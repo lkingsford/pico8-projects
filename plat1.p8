@@ -52,6 +52,7 @@ function _update_menu()
 		elseif btnp(1, p) and player_selected == 0 then
 			player_selected = 1
 		elseif btnp(5, p) or btnp(4,p) then
+			sfx(8)
 			start_game(p)
 			return
 		end
@@ -921,7 +922,6 @@ function launcher_action(b, up, down)
 	i.dx = sgn(b.held_by.dx)
 	i.x = b.x + i.dx * 8
 	i.y = b.y + 1
-	i.h = 5
 	i.r = 2.5
 	i.logic = missile_update
 	i.gravity = false

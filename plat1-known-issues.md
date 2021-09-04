@@ -8,3 +8,5 @@
 - (ENHANCEMENT) Players to run into each other, stand on each other
 - (BUG) Lazgun laser goes through x=128 to other side
 - (BUG) Lazgun hits y-1 sometimes
+- (BUG) Missile hits y-1 terrain
+- (BUG) actor.h != 8 leads to artifacts
