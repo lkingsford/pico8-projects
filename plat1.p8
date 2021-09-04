@@ -985,6 +985,7 @@ function explode(b)
 		add(fore_parts, p)
 	end
 	for i = 0, 20 do
+		local theta = rnd()
 		add(fore_parts, basic_part(
 			b.x,--x
 			b.y,--y
