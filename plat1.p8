@@ -168,18 +168,19 @@ function draw_parts(part_list)
 end
 
 function basic_part(x,y,t,c,dx,dy,gravity,wrap)
-	local p = {}
-	p.draw = draw_basic_part
-	p.update = update_basic_part
-	p.x = x
-	p.y = y
-	p.t = t or 9999
-	p.c = c
-	p.dx = dx or rnd(2)-1
-	p.dy = dy or rnd(2)-1
-	p.wrap = wrap
-	if gravity == nil then p.gravity = true else p.gravity = gravity end
-	return p
+	local grav
+	if gravity == nil then grav = true else grav = gravity end
+	return {
+		draw = draw_basic_part,
+		update = update_basic_part,
+		x = x,
+		y = y,
+		t = t or 9999,
+		c = c,
+		dx = dx or rnd(2)-1,
+		dy = dy or rnd(2)-1,
+		wrap = wrap,
+		gravity = grav }
 end
 
 function new_jump_parts(a)
