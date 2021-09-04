@@ -271,6 +271,7 @@ function player(actor)
 	-- Logic for any player
 	if actor.knocked > 0 then
 		actor.knocked = max(actor.knocked - 1, 0)
+		if actor.holding then drop_item(actor) end
 		return
 	end
 	local p = actor.player
@@ -433,7 +434,7 @@ end
 
 function exploded(b)
 	if b.held_by then
-		drop(b)
+		drop_item(b.held_by)
 	end
 	-- Make bomb explode just a frame after the one next to it doees
 	b.dy += rnd(0.5)
