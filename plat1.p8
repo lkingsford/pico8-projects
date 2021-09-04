@@ -14,13 +14,15 @@ function consts()
 	MAP_COUNT = 4
 	ITEMS = {lazgun, launcher, holy_hand_grenade}
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
+	MODES = {{text="last pillow standing", init=init_lps, update=update_lps, draw=draw_lps}}
+			 --{text="capture the flag", init=init_captureflag, update=update_captureflag, draw=draw_captureflag}}
+	WIN_SCORE = 5
 end
 
 -->8
 -- menu state
 
 -- The menu sits on top of the game while running
-
 function _draw_menu()
 	_draw_game()
 	center_print("pillogrim's duel", 64, 49, 10)
@@ -37,7 +39,7 @@ function _draw_menu()
 end
 
 function _init_menu()
-	_init_game(0)
+	_init_round(0, {init=none, update=none, draw=none})
 	_draw = _draw_menu
 	_update = _update_menu
 	player_selected = 0
@@ -86,6 +88,11 @@ function _draw_game()
 	draw_map()
 	draw_actors()
 	draw_fore_parts()
+	camera()
+	draw_round()
+	if round_ended then
+		center_print(round_end_text,64,64,round_end_color)
+	end
 end
 
 function draw_back()
@@ -227,6 +234,14 @@ function _update_game()
 	update_actors()
 	update_sounds()
 	update_spawn()
+	if not round_ended then
+		update_round()
+	else
+		round_ended_time += 1
+		if round_ended_time > 90 then
+			_init_roundend(check_gameover())
+		end
+	end
 end
 
 function near_int(x)
@@ -318,6 +333,7 @@ function update_actors()
 						a.dy = 0
 						a.recent_thrower = i
 						a.throw_time = 45
+						i.hp -= a.hit_damage
 					end
 				end
 			end
@@ -478,6 +494,10 @@ function none(actor)
 	-- Do nothing
 end
 
+function exploded(actor, exploded_by)
+	actor.hp -= exploded_by.explosion_damage
+end
+
 function check_collide_p(x,y)
 	return fget(mget(x%128/8, y%128/8), 0)
 end
@@ -579,11 +599,14 @@ function new_actor(sprite, logic, draw_logic)
 	a.weight = 1
 	a.jumps = 0
 	a.gravity = true
+	a.hp = 0
+	a.exploded = exploded
+	a.explosion_damage = 10
+	a.hit_damage = 1
 	return a
 end
 
 function load_map(map_id)
-	printh("loading map" .. map_id)
 	-- Copy map_id from rom into map in ram
 	-- Left top corner
 	crate_spawns = {}
@@ -619,35 +642,36 @@ function load_map(map_id)
 end
 
 function start_game(p)
-	_init_game()
 	if player_selected == 0 then
 		-- 1p
 		-- Player who pushed start is the player
-		p0.player = p
-		p1.player = -1
+		p0_player = p
+		p1_player = -1
 	else
 		-- 2p
-		p0.player = 0
-		p1.player = 1
+		p0_player = 0
+		p1_player = 1
 	end
-	_draw = _draw_game
-	_update = _update_game
+	_init_game()
+	_init_roundend()
 end
 
-function _init_game(map)
-	_init_round(map)
+function _init_game()
 	p0_score = 0
 	p1_score = 0
+	_init_roundend()
 end
 
-function _init_round(map)
+function _init_round(map, mode, take_state)
 	p0 = new_actor(2, player)
 	p0.knocked = 0
-	actors={p0}
+	p0.player = p0_player
 
 	p1 = new_actor(18, player)
 	p1.knocked = 0
-	add(actors, p1)
+	p1.player = p1_player
+
+	actors={p0,p1}
 
 	anim_t = 8
 	anim_f = 0
@@ -661,6 +685,99 @@ function _init_round(map)
 	last_walkers = 0
 	next_spawn = 90 -- Wait a few seconds before spawning any items
 	spawns = {}
+
+	mode.init()
+	update_round = mode.update
+	draw_round = mode.draw
+
+	round_ended = false
+
+	if take_state then
+		_update = _update_game
+		_draw = _draw_game
+	end
+end
+
+function round_end(winner)
+	round_ended_time = 0
+	if winner == -1 then
+		round_ended = true
+		round_end_text = "mutual destruction"
+		round_end_color = 7
+		del(actors, p0)
+		del(actors, p1)
+	elseif winner == 0 then
+		round_ended = true
+		round_end_text = "point to the punk"
+		round_end_color = 8
+		p1_score += 1
+		del(actors, p0)
+	else
+		round_ended = true
+		round_end_text = "point to pillowgrim"
+		round_end_color = 12
+		p0_score += 1
+		del(actors, p1)
+	end
+end
+
+function check_gameover()
+	if p0_score >= WIN_SCORE and p1_score <= WIN_SCORE then
+		return true
+	elseif p0_score >= WIN_SCORE then
+		return true
+	elseif p1_score >= WIN_SCORE then
+		return true
+	else
+		return false
+	end
+end
+
+-->8
+-- types of round
+
+-- last pillow standing
+
+function init_lps()
+	p0.hp = 99
+	p1.hp = 99
+end
+
+function update_lps()
+	if p0.hp <= 0 and p1.hp <= 0 then
+		round_end(-1)
+	elseif p0.hp <= 0 then
+		round_end(0)
+	elseif p1.hp <= 0 then
+		round_end(1)
+	end
+end
+
+function hp_color(hp)
+	if hp > 30 then return 7
+	elseif hp > 20 then return 10
+	elseif hp > 10 then return 9
+	else return 8 end
+end
+
+function draw_lps()
+	print(p0.hp,9,0,hp_color(p0.hp))
+	print(p1.hp,119-#tostring(p1.hp)*4,0,hp_color(p1.hp))
+	spr(65,0,0)
+	spr(64,120,0)
+	if round_ended then
+	end
+end
+
+-- capture the flag
+
+function init_captureflag()
+end
+
+function update_captureflag()
+end
+
+function draw_captureflag()
 end
 
 -->8
@@ -691,6 +808,46 @@ function draw_score()
 	end
 end
 
+function _update_roundend()
+	for p = 0,1 do
+		if btnp(5,p) or btnp(4,p) then
+			if not game_over then
+				_init_round(nil, next_round, true)
+			else
+				_init_menu()
+			end
+			return
+		end
+	end
+end
+
+function _draw_roundend()
+	cls()
+	draw_score()
+	if game_over then
+		if p0_score > p1_score then
+			center_print("pillogrim wins", 64, 72, 12)
+		elseif p1_score > p0_score then
+			center_print("the punk wins", 64, 72, 8)
+		else
+			center_print("draw?!?", 64, 72, 7)
+		end
+		return
+	end
+
+	center_print(next_round.text, 64, 72, 10)
+	center_print("❎ to start",64,90,7)
+end
+
+function _init_roundend(_game_over)
+	_update = _update_roundend
+	_draw = _draw_roundend
+	game_over = _game_over
+	if not game_over then
+		next_round = rnd(MODES)
+	end
+end
+
 -->8
 --items
 function bomb()
@@ -701,8 +858,9 @@ function bomb()
 	b.t_per_wick = b.t/#b.wick
 	b.t_next_wick = b.t_per_wick
 	b.r = 2.5
-	b.exploded = exploded
+	b.explosion_damage = 10
 	b.weight=1
+	b.exploded = bomb_exploded
 	return b
 end
 
@@ -722,15 +880,14 @@ function bomb_update(b)
 	end
 end
 
-
-function exploded(b)
-	if b.held_by then
-		drop_item(b.held_by)
+function bomb_exploded(actor)
+	if actor.held_by then
+		drop_item(actor.held_by)
 	end
 	-- Make bomb explode just a frame after the one next to it doees
-	b.dy += rnd(0.5)
-	b.dx += rnd(0.5)
-	b.t = 3
+	actor.dy += rnd(0.5)
+	actor.dx += rnd(0.5)
+	actor.t = 3
 end
 
 function explode(b)
@@ -758,7 +915,7 @@ function explode(b)
 			a.dx += cos(btheta) * v + b.extra_hit_dx
 			a.dy += sin(btheta) * v + b.extra_hit_dy
 			if a.exploded then
-				a.exploded(a)
+				a.exploded(a, b)
 			end
 			if a.knocked >= 0 then
 				a.knocked = 30 -- Knocked out if boomed
@@ -926,6 +1083,7 @@ function launcher_action(b, up, down)
 	i.logic = missile_update
 	i.gravity = false
 	i.collide = explode
+	i.explosion_damage = 10
 	add(actors, i)
 end
 
@@ -975,6 +1133,7 @@ function lazgun_action(lazgun, up, down)
 		i.logic = laser_logic
 		i.gravity = false
 		i.t = 5
+		i.explosion_damage = 15
 		add(actors, i)
 		still_going = ix < 128 and ix > 0 and not fget(mget(flr(ix/8),flr(i.y)/8),1)
 	end
@@ -1020,14 +1179,14 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000900000008000000000000000000000000000000000000000000000000000000000000000000000000000
-0e000e00060006000000000000000000064999460009990000088800000000000000000000000000000000000000000000000000000000000000000000000000
-28e028e01c601c600000000000000000045444540000900000008000000000000000000000000000000000000000000000000000000000000000000000000000
-88828880ccc1ccc000055600000e77000949494900049600000e8700000000000000000000000000000000000000000000000000000000000000000000000000
-088888000ccccc00005555600088ee7009449449004444600088ee70000000000000000000000000000000000000000000000000000000000000000000000000
-0288820001ccc1000015556000288870095949590014446000288870000000000000000000000000000000000000000000000000000000000000000000000000
-00288000001cc00000155550002888e00494449400144440002888e0000000000000000000000000000000000000000000000000000000000000000000000000
-00020000000100000001150000022e00065555560001140000022e00000000000000000000000000000000000000000000000000000000000000000000000000
+008e08e000c70c700000000000000000000000000000900000008000000000000000000000000000000000000000000000000000000000000000000000000000
+0088288000cc1cc00000000000000000064999460009990000088800000000000000000000000000000000000000000000000000000000000000000000000000
+00288880001cccc00000000000000000045444540000900000008000000000000000000000000000000000000000000000000000000000000000000000000000
+000288000001cc0000055600000e77000949494900049600000e8700000000000000000000000000000000000000000000000000000000000000000000000000
+000080000000c000005555600088ee7009449449004444600088ee70000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000015556000288870095949590014446000288870000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000155550002888e00494449400144440002888e0000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000001150000022e00065555560001140000022e00000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0007c07000c07c000007c0000007c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000c070000c000c0c00000c0c00c000000000000000000000000000000000bb0000300000000000000000000000000000000000000000000000000000000
