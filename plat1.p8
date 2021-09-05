@@ -15,8 +15,8 @@ function consts()
 	MAP_COUNT = 4
 	ITEMS = {lazgun, launcher, holy_hand_grenade}
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
-	MODES = {{text="last pillow standing", init=init_lps, update=update_lps, draw=draw_lps},
-			 {text="capture the teddybear", init=init_captureflag, update=update_captureflag, draw=draw_captureflag}}
+	MODES = {{text="last pillow standing", init=init_lps, update=update_lps, draw=draw_lps, ai=ai_lps},
+			 {text="capture the teddybear", init=init_captureflag, update=update_captureflag, draw=draw_captureflag, ai=ai_captureflag}}
 	WIN_SCORE = 5
 	LPS_HEALTH = 99
 	CTF_TIME = 20
@@ -929,6 +929,9 @@ function bomb_exploded(actor)
 	actor.t = 3
 end
 
+function bomb_ai_stat(actor, bomb)
+end
+
 function explode(b)
 	del(actors, b)
 	local x = b.x / 8
@@ -1079,6 +1082,8 @@ function holy_hand_grenade()
 	i.action = holy_hand_grenade_action
 	i.r = 4
 	i.weight = 2
+	i.ai_stat = bomb_ai_stat
+	i.explosion_damage = 15
 	return i
 end
 
@@ -1098,6 +1103,7 @@ end
 function launcher()
 	local i = new_actor(85)
 	i.action = launcher_action
+	i.ai_stat = launcher_ai_stat
 	return i
 end
 
@@ -1120,6 +1126,9 @@ function launcher_action(b, up, down)
 	add(actors, i)
 end
 
+function launcher_ai_stat(actor, launcher)
+end
+
 function missile_update(m)
 	m.dx = m.direction * abs(mid(1, abs(m.dx) + .5, 12))
 	-- Particles
@@ -1139,6 +1148,7 @@ end
 function lazgun()
 	local i = new_actor(87)
 	i.action = lazgun_action
+	i.ai_stat = lazgun_ai_stat
 	return i
 end
 
@@ -1175,6 +1185,9 @@ function laser_logic(laser)
 	if laser.t <= 0 then
 		explode(laser)
 	end
+end
+
+function lazgun_ai_stat(actor, lazgun)
 end
 
 function teddybear()
