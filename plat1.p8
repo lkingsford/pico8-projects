@@ -21,6 +21,7 @@ function consts()
 	PLAYER_MAX = 3
 	LEFT = -1
 	RIGHT = 1
+	THROW_BOMB_FRAME_GAP = 3
 	ai_consts()
 	item_consts()
 	mode_consts()
@@ -288,7 +289,7 @@ function update_actors()
 	for a in all(actors) do
 		init_x = a.x
 		init_y = a.y
-		a.last_activated += 1
+		a.last_action += 1
 		if a.held_by then
 			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
 			a.y = a.held_by.y - 3
@@ -492,6 +493,10 @@ function jump(actor)
 end
 
 function player_bomb(actor, drop, up)
+	if actor.last_action < THROW_BOMB_FRAME_GAP then
+		return
+	end
+	actor.last_action = 0
 	local b = bomb(actor)
 	b.x = actor.x
 	b.y = actor.y
@@ -633,7 +638,7 @@ function new_actor(sprite, logic, draw_logic)
 		hit_damage = 1,
 		capture_time = -1,
 		ai_stat = basic_ai_stat,
-		last_activated = 0
+		last_action = 0
 	}
 end
 
@@ -774,30 +779,108 @@ function ai_consts()
 	GOAL_HIDE = 2
 	GOAL_ITEM = 3
 	GOAL_RUN = 4
+
+	AI_BOMB_FRAME_GAP_MAX = 30
+	AI_BOMB_FRAME_GAP_MIN = 5
+end
+
+function highest_goal(goals)
+	-- Should sort, but actual performance cost is minimal, and trying to limit
+	-- code size
+	-- (Big O is horrifying. Actual size is never going to be above ~16 items.)
+	local highest
+	for i in all(goals) do
+		if not highest or i.weight > highest.weight then highest = i end
+	end
+	return highest
 end
 
 function ai(actor)
-	S = basic_ai_stat()
+	if game_over then return end
+	local goals = {}
+
+	local default = basic_ai_stat()
+	default.goal = GOAL_PERSUE
+	default.weight = -1
+	add(goals, default)
+
 	for a in all(actors) do
 		local s = a.ai_stat(actor, a)
-		if s and s.weight > S.weight then S = s end
+		add(goals, s)
 	end
 	mode_s = mode_ai(actor)
-	if mode_s.weight > S.weight then S = mode_s end
+	add(goals, s)
 
-	if S.goal == GOAL_PERSUE then
-	elseif S.goal == GOAL_RUN then
-	elseif S.goal == GOAL_HIDE then
-	elseif S.goal == GOAL_ITEM then
-
+	-- Always check if should just throw a bomb if not holding anything
+	local bomb_should_throw = should_throw(actor)
+	if (not actor.ai_next_bomb_allowed or actor.last_action > actor.ai_next_bomb_allowed)
+	and not actor.holding and bomb_should_throw then
+		local bomb_state = basic_ai_stat()
+		bomb_state.weight = 10
+		bomb_state.bomb = bomb_should_throw == 1
+		bomb_state.bomb_down = bomb_should_throw == 2
+		bomb_state.direction = human_player_direction(actor)
+		actor.ai_next_bomb_allowed = rnd(AI_BOMB_FRAME_GAP_MAX - AI_BOMB_FRAME_GAP_MIN) + AI_BOMB_FRAME_GAP_MIN
+		add(goals, bomb_state)
 	end
+
+	local S = highest_goal(goals)
+
+	if S.direction and S.direction != sgn(actor.dx) then actor.dx = S.direction end
+	if S.throw then throw_item(actor) end
+	if S.throw_up then throw_item(actor, nil, true) end
+	if S.drop then drop_item(actor) end
+	if S.bomb then player_bomb(actor) end
+	if S.bomb_down then player_bomb(actor, true) end
+	if S.bomb_up then player_bomb(actor, false, true) end
+	if S.action and actor.holding then actor.holding.action(actor.holding) end
+
+	-- There must be a goal. Go through in weight order
+	-- until there is a goal.
+	while not S.goal do
+		del(goals, S)
+		S = highest_goal(goals)
+	end
+
+	local go_to
+	if S.goal == GOAL_PERSUE then
+		go_to = S.target or get_human(actor)
+	elseif S.goal == GOAL_RUN then
+		go_to = furthest_corner(S.target)
+	elseif S.goal == GOAL_HIDE then
+		go_to = furthest_corner(S.target)
+	elseif S.goal == GOAL_ITEM then
+		go_to = S.target
+	end
+
+	if (not actor.ai_go_to_update or actor.ai_go_to_update <= 0 or actor.ai_last_go_to != go_to) then
+		-- Recalculate movement plan every 10+rnd(5) frames
+		actor.ai_last_go_to = go_to
+		actor.ai_go_to_update = rnd(5) + 10
+	end
+
+	-- Save for next time round
+	actor.ai_last_go_to = go_to
+	actor.ai_go_to_update -= 1
+end
+
+function furthest_corner(actor)
+	local _x = 0
+	local _y = 0
+	if actor.x < 64 then _x = 128 end
+	if actor.y < 64 then _y = 128 end
+	return {x = _x, y = _y}
 end
 
 function basic_ai_stat()
 	return {
 		throw = false,
+		throw_up = false,
 		drop = false,
-		activate = false,
+		action = false,
+		bomb = false,
+		bomb_down = false,
+		bomb_up = false,
 		goal = nil,
 		target = nil,
 		weight = 0,
@@ -809,7 +892,7 @@ end
 function get_human(actor)
 	for a in all(actors) do
 		if a.player != nil and a != actor then
-			S.target = a
+			return a
 		end
 	end
 end
@@ -821,12 +904,20 @@ end
 
 function should_throw(actor, bomb)
 	-- TODO: Make this check
-	return true
+	local d = actor_distance(actor, get_human(actor))
+
+	-- Very basic drop or throw. Doesn't take into account walls.
+	-- Doesn't take into account arc.
+	if d < 24 then
+		return 2
+	elseif d > 40 and d < 80 then
+		return 1
+	end
 end
 
-function should_horiz_fire(actor, weapon)
+function should_horiz_fire(actor, weapon, dx)
 	-- TODO: Make this check
-	if weapon.last_activated > 15 then
+	if weapon.last_action > 15 then
 		return true
 	end
 end
@@ -1207,7 +1298,7 @@ end
 function crate_ai(crate, actor)
 	local S = basic_ai_stat()
 	if crate.held_by == actor then
-		S.activate = true
+		S.action = true
 		S.weight = 30
 	else
 		S.goal = GOAL_ITEM
@@ -1261,7 +1352,7 @@ function holy_hand_grenade_action(b, up, down)
 end
 
 function holy_hand_grenade_ai(actor, bomb)
-	-- Unactivated grenade ai
+	-- Unaction grenade ai
 	local S = basic_ai_stat()
 	if bomb.held_by and bomb.held_by != actor then
 		S.goal = GOAL_RUN
@@ -1305,15 +1396,15 @@ function launcher_action(b, up, down)
 	i.gravity = false
 	i.collide = explode
 	i.explosion_damage = 10
-	b.last_activated = 0
+	b.last_action = 0
 	add(actors, i)
 end
 
 function launcher_ai_stat(actor, launcher)
 	local S = basic_ai_stat()
 	-- TODO: should_horiz_fire should take ddx, not just dx
-	if launcher.held_by == actor and should_horiz_fire(16) then
-		S.activate = true
+	if launcher.held_by == actor and should_horiz_fire(actor, launcher, 16) then
+		S.action = true
 		S.direction = human_player_direction(actor)
 		S.weight = 40
 	end
@@ -1367,7 +1458,7 @@ function lazgun_action(lazgun, up, down)
 		add(actors, i)
 		still_going = ix < 128 and ix > 0 and not fget(mget(flr(ix/8),flr(i.y)/8),1)
 	end
-	lazgun.last_activated = 0
+	lazgun.last_action = 0
 	sfx(7)
 end
 
@@ -1380,8 +1471,8 @@ end
 
 function lazgun_ai_stat(actor, lazgun)
 	local S = basic_ai_stat()
-	if lazgun.held_by == actor and should_horiz_fire(128) then
-		S.activate = true
+	if lazgun.held_by == actor and should_horiz_fire(actor, lazgun, 128) then
+		S.action = true
 		S.direction = human_player_direction(actor)
 		S.weight = 40
 	end
