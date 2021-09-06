@@ -291,6 +291,10 @@ function update_actors()
 		init_x = a.x
 		init_y = a.y
 		a.last_action += 1
+		if a.knocked > 0 then
+			a.knocked = mid(45, a.knocked - 1, 0)
+			if a.holding then drop_item(a) end
+		end
 		if a.held_by then
 			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
 			a.y = a.held_by.y - 3
@@ -372,11 +376,7 @@ end
 
 function player(actor)
 	-- Logic for any player
-	if actor.knocked > 0 then
-		actor.knocked = max(actor.knocked - 1, 0)
-		if actor.holding then drop_item(actor) end
-		return
-	end
+	if actor.knocked > 0 then return end
 	if actor.player == -1 then
 		ai(actor)
 	end
@@ -518,7 +518,11 @@ function player_bomb(actor, drop, up)
 end
 
 function actor_distance(actor1, actor2)
-	return distance(actor1.x, actor1.y, actor2.x, actor2.y)
+	if actor1 and actor2 then
+		return distance(actor1.x, actor1.y, actor2.x, actor2.y)
+	else
+		return 999
+	end
 end
 
 function distance(x1, y1, x2, y2)
@@ -867,9 +871,9 @@ function ai(actor)
 	if S.throw then throw_item(actor) end
 	if S.throw_up then throw_item(actor, nil, true) end
 	if S.drop then drop_item(actor) end
-	--if S.bomb then player_bomb(actor) end
-	--if S.bomb_down then player_bomb(actor, true) end
-	--if S.bomb_up then player_bomb(actor, false, true) end
+	if S.bomb then player_bomb(actor) end
+	if S.bomb_down then player_bomb(actor, true) end
+	if S.bomb_up then player_bomb(actor, false, true) end
 	if S.action and actor.holding then actor.holding.action(actor.holding) end
 
 	-- There must be a goal. Go through in weight order
@@ -889,7 +893,7 @@ function ai(actor)
 		go_to = S.target or H
 		printh("Persue target at "..H.x..', '..H.y)
 	elseif S.goal == GOAL_RUN then
-		go_to = furthest_corner(S.target)
+		go_to = run_away_to(S.target)
 		printh("Run from "..S.target.x..', '..S.target.y..' to '..go_to.x..', '..go_to.y)
 	elseif S.goal == GOAL_ITEM then
 		go_to = S.target
@@ -966,7 +970,7 @@ function ai(actor)
 	if #actor.history > 4 then deli(actor.history, 1) end
 end
 
-function furthest_corner(actor)
+function run_away_to(actor)
 	local _x = 0
 	local _y = 0
 	if actor.x < 64 then _x = 128 end
@@ -1276,7 +1280,7 @@ function bomb_ai_stat(actor, bomb)
 	printh("Bomb ai stat")
 	printh("bomb")
 	debug.print(bomb)
-	if actor_distance(actor, bomb) < (bomb.r * 8) then
+	if actor_distance(actor, bomb) < (bomb.r * 12) then
 		S.goal = GOAL_RUN
 		S.target = bomb
 		-- Make a bigger bomb more important to run from
@@ -1528,7 +1532,7 @@ function launcher_ai_stat(actor, launcher)
 	local S = basic_ai_stat()
 	-- TODO: should_horiz_fire should take ddx, not just dx
 	if launcher.held_by == actor then
-		if actor_distance(actor, get_human(actor)) < 20 then
+		if actor_distance(actor, get_human(actor)) < 24 then
 			S.goal = GOAL_RUN
 			S.target = get_human(actor)
 			S.weight = 6
