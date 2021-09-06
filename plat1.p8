@@ -620,7 +620,7 @@ function new_back_part(x)
 end
 
 function new_actor(sprite, logic, draw_logic)
-	debug_id += 1
+	debug_id += 1 --printh
 	printh("CREATE " .. debug_id)
 	printh(trace())
 	printh("--------")
@@ -973,9 +973,25 @@ end
 function run_away_to(actor)
 	local _x = 0
 	local _y = 0
-	if actor.x < 64 then _x = 128 end
+	local actor_x = flr(actor.x / 8)
+	-- Always check along horiz first
+	for dx = 0, 16 do
+		-- This expands outwards
+		local _dx = actor_x + flr(dx / 2) * sgn(2 * (dx % 2) - 1)
+		if x_is_clear(actor, dx) then _x = _dx end
+	end
 	if actor.y < 64 then _y = 128 end
 	return {x = _x, y = _y}
+end
+
+function x_is_clear(actor, x2)
+	local actor_x = flr(actor.x / 8)
+	for ix = actor_x, x2, sgn(x2-actor_x) do
+		if not fget(mget(ix, flr(actor_y) / 8), 0) then
+			return false
+		end
+	end
+	return true
 end
 
 function basic_ai_stat()
@@ -1654,7 +1670,7 @@ function teddy_logic(ted)
 end
 
 -->8
--- Borrowed
+--Borrowed
 debug = {}
 function debug.tstr(t, indent, depth)
  depth = depth or 0
