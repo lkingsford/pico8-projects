@@ -6,6 +6,7 @@ __lua__
 
 function _init()
 	consts()
+	debug_id = 0 --printh
 	_init_menu()
 	menuitem(1, "menu", _init_menu)
 end
@@ -430,6 +431,7 @@ function check_ground(actor)
 end
 
 function drop_item(a)
+	if not a.holding then return end
 	local item = a.holding
 	a.holding.held_by = nil
 	a.holding = nil
@@ -444,6 +446,9 @@ function drop_item(a)
 end
 
 function pick_item(a, item)
+	if a.holding then
+		drop_item(a)
+	end
 	item.held_by = a
 	a.holding = item
 end
@@ -565,11 +570,7 @@ function update_spawn()
 			del(spawns, s)
 			local a
 			if not to_spawn then
-				a = new_actor(68, crate_logic)
-				a.type = ID_CRATE
-				a.exploded = crate_exploded
-				a.action = crate_action
-				a.ai_stat = crate_ai
+				a = crate()
 			else
 				a = to_spawn()
 				to_spawn = nil
@@ -615,8 +616,13 @@ function new_back_part(x)
 end
 
 function new_actor(sprite, logic, draw_logic)
+	debug_id += 1
+	printh("CREATE " .. debug_id)
+	printh(trace())
+	printh("--------")
 	return {
 		type = "",
+		id = debug_id, --printh
 		sprite = sprite,
 		sprite_0 = sprite,
 		logic = logic or none,
@@ -638,7 +644,10 @@ function new_actor(sprite, logic, draw_logic)
 		hit_damage = 1,
 		capture_time = -1,
 		ai_stat = basic_ai_stat,
-		last_action = 0
+		last_action = 0,
+		value = -1,-- Desirability, if item
+		held_value = -1, // Desiribility, if held
+		history = {},
 	}
 end
 
@@ -702,10 +711,12 @@ function _init_round(map, mode, take_state)
 	p0 = new_actor(2, player)
 	p0.knocked = 0
 	p0.player = p0_player
+	p0.type = "Player 0"
 
 	p1 = new_actor(18, player)
 	p1.knocked = 0
 	p1.player = p1_player
+	p1.type = "Player 1"
 
 	actors={p0,p1}
 
@@ -776,12 +787,14 @@ end
 -- ai
 function ai_consts()
 	GOAL_PERSUE = 1
-	GOAL_HIDE = 2
-	GOAL_ITEM = 3
-	GOAL_RUN = 4
+	GOAL_ITEM = 2
+	GOAL_RUN = 3
 
 	AI_BOMB_FRAME_GAP_MAX = 30
 	AI_BOMB_FRAME_GAP_MIN = 5
+	AI_NEXT_JUMP_MIN = 5
+	AI_NEXT_JUMP_MAX = 30
+	STUCK_SENSITIVITY = 1
 end
 
 function highest_goal(goals)
@@ -796,6 +809,7 @@ function highest_goal(goals)
 end
 
 function ai(actor)
+	printh("----------")
 	if game_over then return end
 	local goals = {}
 
@@ -805,11 +819,34 @@ function ai(actor)
 	add(goals, default)
 
 	for a in all(actors) do
-		local s = a.ai_stat(actor, a)
-		add(goals, s)
+		if a != actor and not a.player then
+			printh("Getting stat for following actor (" .. a.type .. ") [" .. a.id .."]")
+			local s = a.ai_stat(actor, a)
+			printh("Stat is follows")
+			debug.print(s)
+			add(goals, s)
+			local item_value = -1
+			if a.held_by then
+				item_value = a.held_value
+			elseif not a.held_by then
+				item_value = a.value
+			end
+			if item_value >= 0 and (not a.holding or a.holding.value < item_value) then
+				add(goals, {
+					goal=GOAL_ITEM,
+					target = a,
+					weight=item_value
+				})
+			end
+		end
 	end
 	mode_s = mode_ai(actor)
-	add(goals, s)
+	add(goals, mode_s)
+
+	printh ("GOALS:")
+	debug.print(goals)
+
+	local H = get_human(actor)
 
 	-- Always check if should just throw a bomb if not holding anything
 	local bomb_should_throw = should_throw(actor)
@@ -830,9 +867,9 @@ function ai(actor)
 	if S.throw then throw_item(actor) end
 	if S.throw_up then throw_item(actor, nil, true) end
 	if S.drop then drop_item(actor) end
-	if S.bomb then player_bomb(actor) end
-	if S.bomb_down then player_bomb(actor, true) end
-	if S.bomb_up then player_bomb(actor, false, true) end
+	--if S.bomb then player_bomb(actor) end
+	--if S.bomb_down then player_bomb(actor, true) end
+	--if S.bomb_up then player_bomb(actor, false, true) end
 	if S.action and actor.holding then actor.holding.action(actor.holding) end
 
 	-- There must be a goal. Go through in weight order
@@ -842,26 +879,91 @@ function ai(actor)
 		S = highest_goal(goals)
 	end
 
+	if S.goal == GOAL_ITEM and S.target.held_by and S.target.held_by != actor then
+		S.goal = GOAL_PERSUE
+		S.target = S.target.held_by
+	end
+
 	local go_to
 	if S.goal == GOAL_PERSUE then
-		go_to = S.target or get_human(actor)
+		go_to = S.target or H
+		printh("Persue target at "..H.x..', '..H.y)
 	elseif S.goal == GOAL_RUN then
 		go_to = furthest_corner(S.target)
-	elseif S.goal == GOAL_HIDE then
-		go_to = furthest_corner(S.target)
+		printh("Run from "..S.target.x..', '..S.target.y..' to '..go_to.x..', '..go_to.y)
 	elseif S.goal == GOAL_ITEM then
 		go_to = S.target
+		printh("Item at "..S.target.x..', '..S.target.y .. " (".. S.target.type ..")")
+		if actor_distance(actor, S.target) < 5 then
+			if actor.holding != nil then
+				drop_item(actor)
+			end
+			pick_item(actor, S.target)
+		end
 	end
 
-	if (not actor.ai_go_to_update or actor.ai_go_to_update <= 0 or actor.ai_last_go_to != go_to) then
-		-- Recalculate movement plan every 10+rnd(5) frames
-		actor.ai_last_go_to = go_to
-		actor.ai_go_to_update = rnd(5) + 10
+	-- Doesn't account for blocking walls yet
+	if abs(actor.x - go_to.x) >= 2 then
+		-- Stop the left-right cycle
+		if actor.x > go_to.x then
+			move(actor, LEFT)
+			printh("Move left")
+		else
+			move(actor, RIGHT)
+			printh("Move right")
+		end
 	end
 
-	-- Save for next time round
-	actor.ai_last_go_to = go_to
-	actor.ai_go_to_update -= 1
+	-- Do something if stuck
+	local stuck = true
+	for xy in all(actor.history) do
+		if actor_distance(xy, actor) > STUCK_SENSITIVITY then
+			stuck = false
+		end
+	end
+	if stuck then
+		-- To do - make this cleverer
+		local action = flr(rnd(3))
+		if action == 0 then
+			player_bomb(actor, true)
+		elseif action == 1 then
+			move(actor, LEFT)
+			jump(actor)
+		elseif action == 2 then
+			move(actor, right)
+			jump(actor)
+		end
+	end
+
+
+	if actor.next_jump_allowed then
+		actor.next_jump_allowed -= 1
+	printh("Next jump allowed is "..actor.next_jump_allowed )
+	end
+
+	if (actor.on_floor) then
+		 printh("On floor")
+	else
+		printh("In air")
+	end
+	printh("Actor.y is "..actor.y.. " go_to.y is ".. go_to.y)
+	printh("dy is "..actor.dy)
+	printh("jumps is "..actor.jumps)
+	if (not actor.next_jump_allowed or actor.next_jump_allowed <= 0) and actor.y > go_to.y and actor.on_floor then
+		printh("Jumping")
+		jump(actor)
+		actor.next_jump_allowed = rnd(AI_NEXT_JUMP_MAX - AI_NEXT_JUMP_MIN) + AI_NEXT_JUMP_MIN
+	end
+	-- Double jump if almost at zenith and need to go higher
+	if not actor.on_floor and actor.y > go_to.y and abs(actor.dy) < 0.2 and actor.jumps == 1 then
+		-- Technically, this just will fail if theres supposed to be a double jump
+		printh("Double jumping")
+		jump(actor)
+	end
+
+	-- Cycle history for stuck detection
+	add(actor.history, {x = actor.x, y = actor.y})
+	if #actor.history > 4 then deli(actor.history, 1) end
 end
 
 function furthest_corner(actor)
@@ -884,7 +986,6 @@ function basic_ai_stat()
 		goal = nil,
 		target = nil,
 		weight = 0,
-		from = nil,
 		direction = nil
 	}
 end
@@ -917,11 +1018,15 @@ end
 
 function should_horiz_fire(actor, weapon, dx)
 	-- TODO: Make this check
-	if weapon.last_action > 15 then
+	printh ("Should horiz fire")
+	printh("actor ")
+	debug.print(actor)
+	printh("weapon ")
+	debug.print(weapon)
+	if weapon.last_action > 15 and abs(get_human(actor).y - actor.y) < 16 then
 		return true
 	end
 end
-
 
 -->8
 -- types of round
@@ -1026,8 +1131,9 @@ function ai_ctf(actor)
 			stat.weight = 20
 		else
 			-- Got teddy
-			stat.goal = GOAL_HIDE
+			stat.goal = GOAL_RUN
 			stat.weight = 10
+			stat.target = get_human(actor)
 		end
 	else
 		for i in all(actors) do
@@ -1115,6 +1221,12 @@ end
 function item_consts()
 	ITEMS = {lazgun, launcher, holy_hand_grenade}
 	ID_CRATE = "CRATE"
+	ID_LAUNCHER = "LAUNCHER"
+	LAUNCHER_SPEED = 15
+	ID_HOLY_HAND_GRENADE = "HOLY HAND GRENADE"
+	ID_LAZGUN = "LAZGUN"
+	LAZGUN_SPEED = 20
+	ID_TEDDY = "TEDDY"
 end
 
 function bomb()
@@ -1129,6 +1241,7 @@ function bomb()
 	b.weight=1
 	b.exploded = bomb_exploded
 	b.nuke = false
+	b.ai_stat = bomb_ai_stat
 	return b
 end
 
@@ -1160,9 +1273,12 @@ end
 
 function bomb_ai_stat(actor, bomb)
 	local S = basic_ai_stat()
-	if actor_distance(actor, bomb) < bomb.r then
+	printh("Bomb ai stat")
+	printh("bomb")
+	debug.print(bomb)
+	if actor_distance(actor, bomb) < (bomb.r * 8) then
 		S.goal = GOAL_RUN
-		S.from = bomb
+		S.target = bomb
 		-- Make a bigger bomb more important to run from
 		S.weight = 10 + bomb.explosion_damage
 	end
@@ -1286,6 +1402,16 @@ function remove_grass(ix, iy)
 	end
 end
 
+function crate()
+	a = new_actor(68, crate_logic)
+	a.type = ID_CRATE
+	a.exploded = crate_exploded
+	a.action = crate_action
+	a.ai_stat = crate_ai
+	a.value = 6
+	a.held_value = 6
+	return a
+end
 
 function crate_exploded(crate)
 	open_crate(crate)
@@ -1295,15 +1421,11 @@ function crate_action(crate, d)
 	open_crate(crate)
 end
 
-function crate_ai(crate, actor)
+function crate_ai(actor, crate)
 	local S = basic_ai_stat()
 	if crate.held_by == actor then
 		S.action = true
 		S.weight = 30
-	else
-		S.goal = GOAL_ITEM
-		S.weight = 6
-		S.target = crate
 	end
 	return S
 end
@@ -1334,6 +1456,8 @@ function holy_hand_grenade()
 	i.weight = 2
 	i.explosion_damage = 15
 	i.ai_stat = holy_hand_grenade_ai
+	i.type = ID_HOLY_HAND_GRENADE
+	i.value = 8
 	return i
 end
 
@@ -1356,27 +1480,26 @@ function holy_hand_grenade_ai(actor, bomb)
 	local S = basic_ai_stat()
 	if bomb.held_by and bomb.held_by != actor then
 		S.goal = GOAL_RUN
-		S.from = actor
+		S.target = actor
 		S.weight = 4
 	elseif bomb.held_by == actor then
 		if should_throw(actor, bomb) then
-			S.throw = true
+			S.action = true
 			S.weight = 50
 		else
 			S.goal = GOAL_PERSUE
 			S.weight = 2
 		end
-	else
-		S.goal = GOAL_ITEM
-		S.target = bomb
-		S.weight = 5
 	end
+	return S
 end
 
 function launcher()
 	local i = new_actor(85)
 	i.action = launcher_action
 	i.ai_stat = launcher_ai_stat
+	i.type = ID_LAUNCHER
+	i.value = 10
 	return i
 end
 
@@ -1385,6 +1508,7 @@ function launcher_action(b, up, down)
 		drop_item(b.held_by, b)
 		return
 	end
+	if b.last_action <= LAUNCHER_SPEED then return end
 	local i = new_actor(86)
 	i.direction = sgn(b.held_by.dx)
 	i.flip = i.direction < 0
@@ -1403,11 +1527,18 @@ end
 function launcher_ai_stat(actor, launcher)
 	local S = basic_ai_stat()
 	-- TODO: should_horiz_fire should take ddx, not just dx
-	if launcher.held_by == actor and should_horiz_fire(actor, launcher, 16) then
-		S.action = true
-		S.direction = human_player_direction(actor)
-		S.weight = 40
+	if launcher.held_by == actor then
+		if actor_distance(actor, get_human(actor)) < 20 then
+			S.goal = GOAL_RUN
+			S.target = get_human(actor)
+			S.weight = 6
+		elseif should_horiz_fire(actor, launcher, 16) then
+			S.action = true
+			S.direction = human_player_direction(actor)
+			S.weight = 40
+		end
 	end
+	return S
 end
 
 function missile_update(m)
@@ -1430,6 +1561,8 @@ function lazgun()
 	local i = new_actor(87)
 	i.action = lazgun_action
 	i.ai_stat = lazgun_ai_stat
+	i.value = 10
+	i.type = ID_LAZGUN
 	return i
 end
 
@@ -1438,6 +1571,8 @@ function lazgun_action(lazgun, up, down)
 		drop_item(lazgun.held_by)
 		return
 	end
+
+	if lazgun.last_action <= LAZGUN_SPEED then return end
 
 	local still_going = true
 	local direction = sgn(lazgun.held_by.dx)
@@ -1476,6 +1611,7 @@ function lazgun_ai_stat(actor, lazgun)
 		S.direction = human_player_direction(actor)
 		S.weight = 40
 	end
+	return S
 end
 
 function teddybear()
@@ -1484,6 +1620,8 @@ function teddybear()
 	teddy.t = 15
 	teddy.r = 8
 	teddy.last_beep = 0
+	teddy.type = ID_TEDDY
+	teddy.value = 50
 	teddy_bear = teddy
 	return teddy
 end
@@ -1509,6 +1647,41 @@ function teddy_logic(ted)
 	else
 		teddy.last_beep = 0
 	end
+end
+
+-->8
+-- Borrowed
+debug = {}
+function debug.tstr(t, indent, depth)
+ depth = depth or 0
+ if (depth > 3) return '...'
+ indent = indent or 0
+ local indentstr = ''
+ for i=0,indent do
+  indentstr = indentstr .. ' '
+ end
+ local str = ''
+ for k, v in pairs(t) do
+  if type(v) == 'table' then
+   str = str .. indentstr .. k .. '\n' .. debug.tstr(v, indent + 1, depth+1) .. '\n'
+  else
+   str = str .. indentstr .. tostr(k) .. ': ' .. tostr(v) .. '\n'
+  end
+ end
+  str = sub(str, 1, -2)
+ return str
+end
+function debug.print(...)
+ printh("\n")
+ for v in all{...} do
+  if type(v) == "table" then
+   printh(debug.tstr(v))
+  elseif type(v) == "nil" then
+    printh("nil")
+  else
+   printh(v)
+  end
+ end
 end
 
 __gfx__
