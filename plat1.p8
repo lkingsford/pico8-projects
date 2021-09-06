@@ -13,13 +13,17 @@ end
 function consts()
 	VERSION = "V0.1"
 	MAP_COUNT = 4
-	ITEMS = {lazgun, launcher, holy_hand_grenade}
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
-	MODES = {{text="last pillow standing", init=init_lps, update=update_lps, draw=draw_lps, ai=ai_lps},
-			 {text="capture the teddybear", init=init_captureflag, update=update_captureflag, draw=draw_captureflag, ai=ai_captureflag}}
 	WIN_SCORE = 5
 	LPS_HEALTH = 99
 	CTF_TIME = 20
+	PLAYER_ACCEL = .75
+	PLAYER_MAX = 3
+	LEFT = -1
+	RIGHT = 1
+	ai_consts()
+	item_consts()
+	mode_consts()
 end
 
 -->8
@@ -284,6 +288,7 @@ function update_actors()
 	for a in all(actors) do
 		init_x = a.x
 		init_y = a.y
+		a.last_activated += 1
 		if a.held_by then
 			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
 			a.y = a.held_by.y - 3
@@ -370,6 +375,9 @@ function player(actor)
 		if actor.holding then drop_item(actor) end
 		return
 	end
+	if actor.player == -1 then
+		ai(actor)
+	end
 	local p = actor.player
 	local l = btn(0, p)
 	local r = btn(1, p)
@@ -377,17 +385,13 @@ function player(actor)
 	local d = btn(3, p)
 	local o = btnp(4, p)
 	local x = btnp(5, p)
-	local accel = .75
-	local max = 3
 	if l then
-		actor.dx -= accel
-		actor.flip = true
+		move(actor, LEFT)
 	end
 	if r then
-		actor.dx += accel
-		actor.flip = false
+		move(actor, RIGHT)
 	end
-	actor.dx = min(abs(actor.dx), max) * sgn(actor.dx)
+	actor.dx = min(abs(actor.dx), PLAYER_MAX) * sgn(actor.dx)
 	if x then
 		jump(actor)
 	end
@@ -456,6 +460,16 @@ function throw_item(a, b, up)
 	end
 end
 
+function move(actor, direction)
+	if direction == LEFT then
+		actor.dx -= PLAYER_ACCEL
+		actor.flip = true
+	elseif direction == RIGHT then
+		actor.dx += PLAYER_ACCEL
+		actor.flip = false
+	end
+end
+
 function jump(actor)
 	local jump = 4
 	if actor.held_by then
@@ -493,6 +507,10 @@ function player_bomb(actor, drop, up)
 	sfx(2)
 end
 
+function actor_distance(actor1, actor2)
+	return distance(actor1.x, actor1.y, actor2.x, actor2.y)
+end
+
 function distance(x1, y1, x2, y2)
 	x2 = x2 or 0
 	y2 = y2 or 0
@@ -520,6 +538,7 @@ function check_collide(x, y, w, h)
 
 	a = check_collide_p(x+1,y+1)
 	b = check_collide_p(x+w-1,y+1)
+	-- Should we run away too?
 	c = check_collide_p(x+1,y+h-1)
 	d = check_collide_p(x+w-1,y+h-1)
 	if a or b or c or d then return true else return false end
@@ -542,8 +561,10 @@ function update_spawn()
 			local a
 			if not to_spawn then
 				a = new_actor(68, crate_logic)
+				a.type = ID_CRATE
 				a.exploded = crate_exploded
 				a.action = crate_action
+				a.ai_stat = crate_ai
 			else
 				a = to_spawn()
 				to_spawn = nil
@@ -590,6 +611,7 @@ end
 
 function new_actor(sprite, logic, draw_logic)
 	return {
+		type = "",
 		sprite = sprite,
 		sprite_0 = sprite,
 		logic = logic or none,
@@ -609,7 +631,9 @@ function new_actor(sprite, logic, draw_logic)
 		exploded = exploded,
 		explosion_damage = 10,
 		hit_damage = 1,
-		capture_time = -1
+		capture_time = -1,
+		ai_stat = basic_ai_stat,
+		last_activated = 0
 	}
 end
 
@@ -700,6 +724,7 @@ function _init_round(map, mode, take_state)
 	draw_round = mode.draw
 
 	round_ended = false
+	mode_ai = mode.ai
 
 	if take_state then
 		_update = _update_game
@@ -743,9 +768,78 @@ function check_gameover()
 end
 
 -->8
+-- ai
+function ai_consts()
+	GOAL_PERSUE = 1
+	GOAL_HIDE = 2
+	GOAL_ITEM = 3
+	GOAL_RUN = 4
+end
+
+function ai(actor)
+	S = basic_ai_stat()
+	for a in all(actors) do
+		local s = a.ai_stat(actor, a)
+		if s and s.weight > S.weight then S = s end
+	end
+	mode_s = mode_ai(actor)
+	if mode_s.weight > S.weight then S = mode_s end
+
+	if S.goal == GOAL_PERSUE then
+	elseif S.goal == GOAL_RUN then
+	elseif S.goal == GOAL_HIDE then
+	elseif S.goal == GOAL_ITEM then
+
+	end
+end
+
+function basic_ai_stat()
+	return {
+		throw = false,
+		drop = false,
+		activate = false,
+		goal = nil,
+		target = nil,
+		weight = 0,
+		from = nil,
+		direction = nil
+	}
+end
+
+function get_human(actor)
+	for a in all(actors) do
+		if a.player != nil and a != actor then
+			S.target = a
+		end
+	end
+end
+
+function human_player_direction(actor)
+	local h = get_human(actor)
+	if h.x < actor.x then return -1 else return 1 end
+end
+
+function should_throw(actor, bomb)
+	-- TODO: Make this check
+	return true
+end
+
+function should_horiz_fire(actor, weapon)
+	-- TODO: Make this check
+	if weapon.last_activated > 15 then
+		return true
+	end
+end
+
+
+-->8
 -- types of round
 
 -- last pillow standing
+function mode_consts()
+	MODES = {{text="last pillow standing", init=init_lps, update=update_lps, draw=draw_lps, ai=ai_lps},
+			 {text="capture the teddybear", init=init_ctf, update=update_ctf, draw=draw_ctf, ai=ai_ctf}}
+end
 
 function init_lps()
 	p0.hp = LPS_HEALTH
@@ -777,16 +871,25 @@ function draw_lps()
 	spr(64,120,0)
 end
 
+function ai_lps(actor)
+	local S = basic_ai_stat(actor)
+	S.goal = GOAL_PERSUE
+	S.weight = 2
+	return S
+	-- Should we run away too?
+end
+
 
 -- capture the teddybear (flag)
 
-function init_captureflag()
+function init_ctf()
+	teddy = nil
 	to_spawn = teddybear
 	p0.capture_time = CTF_TIME
 	p1.capture_time = CTF_TIME
 end
 
-function update_captureflag()
+function update_ctf()
 	if p0.capture_time <= 0 then
 		p0.capture_time = 0
 		round_end(0)
@@ -811,11 +914,41 @@ function capture_time_color(time)
 	else return 8 end
 end
 
-function draw_captureflag()
+function draw_ctf()
 	if round_ended then return end
 	print(format_capture_time(p0.capture_time),9,0,capture_time_color(p0.capture_time))
 	local p1_time = format_capture_time(p1.capture_time)
 	print(p1_time,119-#p1_time*4,0,capture_time_color(p1.capture_time))
+end
+
+function ai_ctf(actor)
+	local stat = basic_ai_stat(actor)
+	if teddy != nil then
+		-- Teddy has spawned
+		if teddy.held_by != nil and teddy.held_by != actor then
+			stat.goal = GOAL_PERSUE
+			stat.target = teddy.held_by
+			stat.weight = 15
+		elseif teddy.held_by == nil then
+			stat.goal = GOAL_ITEM
+			stat.target = teddy
+			stat.weight = 20
+		else
+			-- Got teddy
+			stat.goal = GOAL_HIDE
+			stat.weight = 10
+		end
+	else
+		for i in all(actors) do
+			if not stat.goal and i.type == ID_CRATE then
+				-- First crate contains teddy
+				stat.goal = GOAL_ITEM
+				stat.target = i
+				stat.weight = 20
+			end
+		end
+	end
+	return stat
 end
 
 -->8
@@ -888,6 +1021,11 @@ end
 
 -->8
 --items
+function item_consts()
+	ITEMS = {lazgun, launcher, holy_hand_grenade}
+	ID_CRATE = "CRATE"
+end
+
 function bomb()
 	b = new_actor(66,bomb_update,bomb_draw)
 	b.wick = wick()
@@ -930,6 +1068,14 @@ function bomb_exploded(actor)
 end
 
 function bomb_ai_stat(actor, bomb)
+	local S = basic_ai_stat()
+	if actor_distance(actor, bomb) < bomb.r then
+		S.goal = GOAL_RUN
+		S.from = bomb
+		-- Make a bigger bomb more important to run from
+		S.weight = 10 + bomb.explosion_damage
+	end
+	return S
 end
 
 function explode(b)
@@ -1058,6 +1204,19 @@ function crate_action(crate, d)
 	open_crate(crate)
 end
 
+function crate_ai(crate, actor)
+	local S = basic_ai_stat()
+	if crate.held_by == actor then
+		S.activate = true
+		S.weight = 30
+	else
+		S.goal = GOAL_ITEM
+		S.weight = 6
+		S.target = crate
+	end
+	return S
+end
+
 function open_crate(crate)
 	del(actors, crate)
 
@@ -1082,8 +1241,8 @@ function holy_hand_grenade()
 	i.action = holy_hand_grenade_action
 	i.r = 4
 	i.weight = 2
-	i.ai_stat = bomb_ai_stat
 	i.explosion_damage = 15
+	i.ai_stat = holy_hand_grenade_ai
 	return i
 end
 
@@ -1091,6 +1250,7 @@ function holy_hand_grenade_action(b, up, down)
 	b.logic = bomb_update
 	b.draw_logic = bomb_draw
 	b.t = 60
+	b.ai_stat = bomb_ai_stat
 	b.max_t = b.t
 	if not down then
 		throw_item(b.held_by, b, up)
@@ -1098,6 +1258,28 @@ function holy_hand_grenade_action(b, up, down)
 		drop_item(b.held_by, b, down)
 	end
 	sfx(6)
+end
+
+function holy_hand_grenade_ai(actor, bomb)
+	-- Unactivated grenade ai
+	local S = basic_ai_stat()
+	if bomb.held_by and bomb.held_by != actor then
+		S.goal = GOAL_RUN
+		S.from = actor
+		S.weight = 4
+	elseif bomb.held_by == actor then
+		if should_throw(actor, bomb) then
+			S.throw = true
+			S.weight = 50
+		else
+			S.goal = GOAL_PERSUE
+			S.weight = 2
+		end
+	else
+		S.goal = GOAL_ITEM
+		S.target = bomb
+		S.weight = 5
+	end
 end
 
 function launcher()
@@ -1123,10 +1305,18 @@ function launcher_action(b, up, down)
 	i.gravity = false
 	i.collide = explode
 	i.explosion_damage = 10
+	b.last_activated = 0
 	add(actors, i)
 end
 
 function launcher_ai_stat(actor, launcher)
+	local S = basic_ai_stat()
+	-- TODO: should_horiz_fire should take ddx, not just dx
+	if launcher.held_by == actor and should_horiz_fire(16) then
+		S.activate = true
+		S.direction = human_player_direction(actor)
+		S.weight = 40
+	end
 end
 
 function missile_update(m)
@@ -1177,6 +1367,7 @@ function lazgun_action(lazgun, up, down)
 		add(actors, i)
 		still_going = ix < 128 and ix > 0 and not fget(mget(flr(ix/8),flr(i.y)/8),1)
 	end
+	lazgun.last_activated = 0
 	sfx(7)
 end
 
@@ -1188,6 +1379,12 @@ function laser_logic(laser)
 end
 
 function lazgun_ai_stat(actor, lazgun)
+	local S = basic_ai_stat()
+	if lazgun.held_by == actor and should_horiz_fire(128) then
+		S.activate = true
+		S.direction = human_player_direction(actor)
+		S.weight = 40
+	end
 end
 
 function teddybear()
@@ -1196,6 +1393,7 @@ function teddybear()
 	teddy.t = 15
 	teddy.r = 8
 	teddy.last_beep = 0
+	teddy_bear = teddy
 	return teddy
 end
 
