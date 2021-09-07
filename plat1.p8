@@ -906,6 +906,46 @@ function ai(actor)
 		end
 	end
 
+	-- If on top of x wise, but y is some distance away, override the go to
+	-- to try to get around it
+	-- We're calling this the 'go to override'. If it's there, and active (ie -
+	-- still pointing to the same go to), do that instead of the go to
+	if actor.go_to_override and actor.go_to_override.original_go_to == go_to then
+		-- Process override
+		go_to_override.t -= 1
+		go_to = go_to_override.go_to
+		if actor_distance(actor, go_to_override.go_to) < 4 then
+			if go_to_override.bomb_dest then
+				-- drop a bomb if bombing dest and there
+				player_bomb(actor, true)
+			elseif go_to_override.jump_dest then
+				go_to = go_to_override.original_go_to
+				jump(actor)
+			end
+		end
+	elseif actor.go_to_override then
+		-- Different original_go_to - drop it
+		actor.go_to_override = nil
+	elseif abs(actor.x - go_to.x) < 4 and abs(actor.y - go_to.y) > 8 then
+		-- Probably need to override.
+		-- TODO: Check if jumping into space where it is
+		-- Check if history is all in same situation
+		printh("Possible override required")
+		printh("Actor:")
+		debug.print(actor)
+		printh("go_to:")
+		debug.print(go_to)
+		for xy in all(actor.history) do
+			printh("Checking "..xy.x..','..xy.y)
+			if not (abs(actor.x - go_to.x) < 4 and abs(actor.y - go_to.y) > 8) then
+				printh("Skipping override due to history entry ".. debug.tsr(xy))
+				goto skip_override
+			end
+		end
+		printh("Creating override")
+	end
+	::skip_override::
+
 	-- Doesn't account for blocking walls yet
 	if abs(actor.x - go_to.x) >= 2 then
 		-- Stop the left-right cycle
@@ -938,7 +978,6 @@ function ai(actor)
 			jump(actor)
 		end
 	end
-
 
 	if actor.next_jump_allowed then
 		actor.next_jump_allowed -= 1
@@ -978,7 +1017,7 @@ function run_away_to(actor)
 	for dx = 0, 16 do
 		-- This expands outwards
 		local _dx = actor_x + flr(dx / 2) * sgn(2 * (dx % 2) - 1)
-		if x_is_clear(actor, dx) then _x = _dx end
+		if x_is_clear(actor, dx * 8) then _x = _dx end
 	end
 	if actor.y < 64 then _y = 128 end
 	return {x = _x, y = _y}
@@ -986,8 +1025,8 @@ end
 
 function x_is_clear(actor, x2)
 	local actor_x = flr(actor.x / 8)
-	for ix = actor_x, x2, sgn(x2-actor_x) do
-		if not fget(mget(ix, flr(actor_y) / 8), 0) then
+	for ix = actor_x, x2, 8 * sgn(x2-actor_x) do
+		if check_collide(ix, actor.y) then
 			return false
 		end
 	end
