@@ -545,16 +545,16 @@ end
 
 function check_collide(x, y, w, h)
 	local collide = false
-	w = w or 7
-	h = h or 7
-	x = (x+1) % 128
-	y = (y+1) % 128
+	local w = w or 7
+	local h = h or 7
+	local x = (x+1) % 128
+	local y = (y+1) % 128
 
-	a = check_collide_p(x+1,y+1)
-	b = check_collide_p(x+w-1,y+1)
+	local a = check_collide_p(x+1,y+1)
+	local b = check_collide_p(x+w-1,y+1)
 	-- Should we run away too?
-	c = check_collide_p(x+1,y+h-1)
-	d = check_collide_p(x+w-1,y+h-1)
+	local c = check_collide_p(x+1,y+h-1)
+	local d = check_collide_p(x+w-1,y+h-1)
 	if a or b or c or d then return true else return false end
 end
 
@@ -562,7 +562,7 @@ function update_spawn()
 	-- Spawn crates
 	next_spawn -= 1
 	if next_spawn <= 0 then
-		spawn = {}
+		local spawn = {}
 		spawn.loc = rnd(crate_spawns)
 		spawn.time = rnd(60)+30
 		add(spawns, spawn)
@@ -1009,23 +1009,24 @@ function ai(actor)
 	if #actor.history > 4 then deli(actor.history, 1) end
 end
 
-function run_away_to(actor)
+function run_away_to(run_from)
+	-- Get position to run to, away from actor run_from
 	local _x = 0
 	local _y = 0
-	local actor_x = flr(actor.x / 8)
+	local actor_x = flr(run_from.x / 8)
 	-- Always check along horiz first
-	for dx = 0, 16 do
+	for dx = 0, 32 do
 		-- This expands outwards
-		local _dx = actor_x + flr(dx / 2) * sgn(2 * (dx % 2) - 1)
-		if x_is_clear(actor, dx * 8) then _x = _dx end
+		local _dx = run_from.x + 8 * (flr(dx / 2) * sgn(2 * (dx % 2) - 1))
+		if x_is_clear(run_from, _dx) then _x = _dx end
 	end
-	if actor.y < 64 then _y = 128 end
+	if run_from.y < 64 then _y = 128 end
 	return {x = _x, y = _y}
 end
 
 function x_is_clear(actor, x2)
-	local actor_x = flr(actor.x / 8)
-	for ix = actor_x, x2, 8 * sgn(x2-actor_x) do
+	local d = 8 * sgn(x2 - actor.x)
+	for ix = actor.x + d, x2, d do
 		if check_collide(ix, actor.y) then
 			return false
 		end
@@ -1680,7 +1681,7 @@ function teddybear()
 	teddy.r = 8
 	teddy.last_beep = 0
 	teddy.type = ID_TEDDY
-	teddy.value = 50
+	teddy.value = 15
 	teddy_bear = teddy
 	return teddy
 end
