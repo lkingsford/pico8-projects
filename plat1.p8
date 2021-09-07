@@ -855,7 +855,7 @@ function ai(actor)
 	-- Always check if should just throw a bomb if not holding anything
 	local bomb_should_throw = should_throw(actor)
 	if (not actor.ai_next_bomb_allowed or actor.last_action > actor.ai_next_bomb_allowed)
-	and not actor.holding and bomb_should_throw then
+	and not actor.holding and (bomb_should_throw or (actor.override and actor.override.bomb)) then
 		local bomb_state = basic_ai_stat()
 		bomb_state.weight = 10
 		bomb_state.bomb = bomb_should_throw == 1
@@ -912,14 +912,14 @@ function ai(actor)
 	-- still pointing to the same go to), do that instead of the go to
 	if actor.go_to_override and actor.go_to_override.original_go_to == go_to then
 		-- Process override
-		go_to_override.t -= 1
-		go_to = go_to_override.go_to
-		if actor_distance(actor, go_to_override.go_to) < 4 then
+		actor.go_to_override.t -= 1
+		go_to = actor.go_to_override.go_to
+		if actor_distance(actor, actor.go_to_override.go_to) < 4 then
 			if go_to_override.bomb_dest then
 				-- drop a bomb if bombing dest and there
 				player_bomb(actor, true)
-			elseif go_to_override.jump_dest then
-				go_to = go_to_override.original_go_to
+			elseif actor.go_to_override.jump_dest then
+				go_to = actor.go_to_override.original_go_to
 				jump(actor)
 			end
 		end
@@ -943,6 +943,14 @@ function ai(actor)
 			end
 		end
 		printh("Creating override")
+		-- Default overrides are to see if we can jump, or see if there's a
+		-- destructable surface
+		actor.go_to_override = {
+			original_go_to = go_to,
+			go_to = run_away_to(go_to),
+			t = rnd(60)+15,
+			bomb = actor.y < go_to.y
+		}
 	end
 	::skip_override::
 
