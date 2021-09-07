@@ -6,7 +6,7 @@ __lua__
 
 function _init()
 	consts()
-	debug_id = 0 --printh
+--	debug_id = 0 --printh
 	_init_menu()
 	menuitem(1, "menu", _init_menu)
 end
@@ -620,13 +620,10 @@ function new_back_part(x)
 end
 
 function new_actor(sprite, logic, draw_logic)
-	debug_id += 1 --printh
-	printh("CREATE " .. debug_id)
-	printh(trace())
-	printh("--------")
+--	debug_id += 1 --printh
 	return {
 		type = "",
-		id = debug_id, --printh
+--		id = debug_id, --printh
 		sprite = sprite,
 		sprite_0 = sprite,
 		logic = logic or none,
@@ -813,7 +810,6 @@ function highest_goal(goals)
 end
 
 function ai(actor)
-	printh("----------")
 	if game_over then return end
 	local goals = {}
 
@@ -824,10 +820,7 @@ function ai(actor)
 
 	for a in all(actors) do
 		if a != actor and not a.player then
-			printh("Getting stat for following actor (" .. a.type .. ") [" .. a.id .."]")
 			local s = a.ai_stat(actor, a)
-			printh("Stat is follows")
-			debug.print(s)
 			add(goals, s)
 			local item_value = -1
 			if a.held_by then
@@ -847,8 +840,6 @@ function ai(actor)
 	mode_s = mode_ai(actor)
 	add(goals, mode_s)
 
-	printh ("GOALS:")
-	debug.print(goals)
 
 	local H = get_human(actor)
 
@@ -891,13 +882,10 @@ function ai(actor)
 	local go_to
 	if S.goal == GOAL_PERSUE then
 		go_to = S.target or H
-		printh("Persue target at "..H.x..', '..H.y)
 	elseif S.goal == GOAL_RUN then
 		go_to = run_away_to(S.target)
-		printh("Run from "..S.target.x..', '..S.target.y..' to '..go_to.x..', '..go_to.y)
 	elseif S.goal == GOAL_ITEM then
 		go_to = S.target
-		printh("Item at "..S.target.x..', '..S.target.y .. " (".. S.target.type ..")")
 		if actor_distance(actor, S.target) < 5 then
 			if actor.holding != nil then
 				drop_item(actor)
@@ -930,19 +918,11 @@ function ai(actor)
 		-- Probably need to override.
 		-- TODO: Check if jumping into space where it is
 		-- Check if history is all in same situation
-		printh("Possible override required")
-		printh("Actor:")
-		debug.print(actor)
-		printh("go_to:")
-		debug.print(go_to)
 		for xy in all(actor.history) do
-			printh("Checking "..xy.x..','..xy.y)
 			if not (abs(actor.x - go_to.x) < 4 and abs(actor.y - go_to.y) > 8) then
-				printh("Skipping override due to history entry ".. debug.tsr(xy))
 				goto skip_override
 			end
 		end
-		printh("Creating override")
 		-- Default overrides are to see if we can jump, or see if there's a
 		-- destructable surface
 		actor.go_to_override = {
@@ -959,10 +939,8 @@ function ai(actor)
 		-- Stop the left-right cycle
 		if actor.x > go_to.x then
 			move(actor, LEFT)
-			printh("Move left")
 		else
 			move(actor, RIGHT)
-			printh("Move right")
 		end
 	end
 
@@ -989,26 +967,18 @@ function ai(actor)
 
 	if actor.next_jump_allowed then
 		actor.next_jump_allowed -= 1
-	printh("Next jump allowed is "..actor.next_jump_allowed )
 	end
 
 	if (actor.on_floor) then
-		 printh("On floor")
 	else
-		printh("In air")
 	end
-	printh("Actor.y is "..actor.y.. " go_to.y is ".. go_to.y)
-	printh("dy is "..actor.dy)
-	printh("jumps is "..actor.jumps)
 	if (not actor.next_jump_allowed or actor.next_jump_allowed <= 0) and actor.y > go_to.y and actor.on_floor then
-		printh("Jumping")
 		jump(actor)
 		actor.next_jump_allowed = rnd(AI_NEXT_JUMP_MAX - AI_NEXT_JUMP_MIN) + AI_NEXT_JUMP_MIN
 	end
 	-- Double jump if almost at zenith and need to go higher
 	if not actor.on_floor and actor.y > go_to.y and abs(actor.dy) < 0.2 and actor.jumps == 1 then
 		-- Technically, this just will fail if theres supposed to be a double jump
-		printh("Double jumping")
 		jump(actor)
 	end
 
@@ -1086,11 +1056,6 @@ end
 
 function should_horiz_fire(actor, weapon, dx)
 	-- TODO: Make this check
-	printh ("Should horiz fire")
-	printh("actor ")
-	debug.print(actor)
-	printh("weapon ")
-	debug.print(weapon)
 	if weapon.last_action > 15 and abs(get_human(actor).y - actor.y) < 16 then
 		return true
 	end
@@ -1341,9 +1306,6 @@ end
 
 function bomb_ai_stat(actor, bomb)
 	local S = basic_ai_stat()
-	printh("Bomb ai stat")
-	printh("bomb")
-	debug.print(bomb)
 	if actor_distance(actor, bomb) < (bomb.r * 12) then
 		S.goal = GOAL_RUN
 		S.target = bomb
@@ -1715,41 +1677,6 @@ function teddy_logic(ted)
 	else
 		teddy.last_beep = 0
 	end
-end
-
--->8
---Borrowed
-debug = {}
-function debug.tstr(t, indent, depth)
- depth = depth or 0
- if (depth > 3) return '...'
- indent = indent or 0
- local indentstr = ''
- for i=0,indent do
-  indentstr = indentstr .. ' '
- end
- local str = ''
- for k, v in pairs(t) do
-  if type(v) == 'table' then
-   str = str .. indentstr .. k .. '\n' .. debug.tstr(v, indent + 1, depth+1) .. '\n'
-  else
-   str = str .. indentstr .. tostr(k) .. ': ' .. tostr(v) .. '\n'
-  end
- end
-  str = sub(str, 1, -2)
- return str
-end
-function debug.print(...)
- printh("\n")
- for v in all{...} do
-  if type(v) == "table" then
-   printh(debug.tstr(v))
-  elseif type(v) == "nil" then
-    printh("nil")
-  else
-   printh(v)
-  end
- end
 end
 
 __gfx__
