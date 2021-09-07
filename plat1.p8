@@ -53,7 +53,9 @@ function _init_menu()
 	_draw = _draw_menu
 	_update = _update_menu
 	player_selected = 0
-	for i in all(actors) do i.player = 255 end
+	-- Have them just play during menu
+	p0.player = -1
+	p1.player = -1
 end
 
 function _update_menu()
@@ -837,11 +839,13 @@ function ai(actor)
 			end
 		end
 	end
-	mode_s = mode_ai(actor)
-	add(goals, mode_s)
+	if mode_ai then
+		mode_s = mode_ai(actor)
+		add(goals, mode_s)
+	end
 
 
-	local H = get_human(actor)
+	local H = get_other_player(actor)
 
 	-- Always check if should just throw a bomb if not holding anything
 	local bomb_should_throw = should_throw(actor)
@@ -931,7 +935,7 @@ function ai(actor)
 		actor.go_to_override = {
 			original_go_to = go_to,
 			go_to = run_away_to(go_to),
-			t = rnd(60)+15+(actor_distance(actor, get_human(actor)) / 2),
+			t = rnd(60)+15+(actor_distance(actor, get_other_player(actor)) / 2),
 			bomb = actor.y < go_to.y
 		}
 	end
@@ -1042,26 +1046,22 @@ function basic_ai_stat()
 	}
 end
 
-function get_human(actor)
-	for a in all(actors) do
-		if a.player != nil and a != actor then
-			return a
-		end
-	end
+function get_other_player(actor)
+	if actor == p1 then return p0 else return p1 end
 end
 
 function human_player_direction(actor)
-	local h = get_human(actor)
+	local h = get_other_player(actor)
 	if h.x < actor.x then return -1 else return 1 end
 end
 
 function should_throw(actor, bomb)
 	-- TODO: Make this check
-	local d = actor_distance(actor, get_human(actor))
+	local d = actor_distance(actor, get_other_player(actor))
 
 	-- Drop if below
-	if abs(actor.x - get_human(actor).x) < 6 then
-		if below_is_clear(actor, get_human(actor).y) then
+	if abs(actor.x - get_other_player(actor).x) < 6 then
+		if below_is_clear(actor, get_other_player(actor).y) then
 			return 2
 		end
 	end
@@ -1077,7 +1077,7 @@ end
 
 function should_horiz_fire(actor, weapon, dx)
 	-- TODO: Make this check
-	if weapon.last_action > 15 and abs(get_human(actor).y - actor.y) < 16 then
+	if weapon.last_action > 15 and abs(get_other_player(actor).y - actor.y) < 16 then
 		return true
 	end
 end
@@ -1187,7 +1187,7 @@ function ai_ctf(actor)
 			-- Got teddy
 			stat.goal = GOAL_RUN
 			stat.weight = 10
-			stat.target = get_human(actor)
+			stat.target = get_other_player(actor)
 		end
 	else
 		for i in all(actors) do
@@ -1579,9 +1579,9 @@ function launcher_ai_stat(actor, launcher)
 	local S = basic_ai_stat()
 	-- TODO: should_horiz_fire should take ddx, not just dx
 	if launcher.held_by == actor then
-		if actor_distance(actor, get_human(actor)) < 24 then
+		if actor_distance(actor, get_other_player(actor)) < 24 then
 			S.goal = GOAL_RUN
-			S.target = get_human(actor)
+			S.target = get_other_player(actor)
 			S.weight = 6
 		elseif should_horiz_fire(actor, launcher, 16) then
 			S.action = true
