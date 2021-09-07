@@ -795,7 +795,7 @@ function ai_consts()
 	AI_BOMB_FRAME_GAP_MIN = 5
 	AI_NEXT_JUMP_MIN = 5
 	AI_NEXT_JUMP_MAX = 30
-	STUCK_SENSITIVITY = 1
+	STUCK_SENSITIVITY = 5
 end
 
 function highest_goal(goals)
@@ -917,6 +917,9 @@ function ai(actor)
 	elseif abs(actor.x - go_to.x) < 4 and abs(actor.y - go_to.y) > 8 then
 		-- Probably need to override.
 		-- TODO: Check if jumping into space where it is
+		if below_is_clear(actor, go_to.y) then
+			goto skip_override
+		end
 		-- Check if history is all in same situation
 		for xy in all(actor.history) do
 			if not (abs(actor.x - go_to.x) < 4 and abs(actor.y - go_to.y) > 8) then
@@ -928,7 +931,7 @@ function ai(actor)
 		actor.go_to_override = {
 			original_go_to = go_to,
 			go_to = run_away_to(go_to),
-			t = rnd(60)+15,
+			t = rnd(60)+15+(actor_distance(actor, get_human(actor)) / 2),
 			bomb = actor.y < go_to.y
 		}
 	end
@@ -1012,6 +1015,17 @@ function x_is_clear(actor, x2)
 	return true
 end
 
+function below_is_clear(actor, y2)
+	if y2 < actor.y then return false end
+	local d = 8
+	for iy = actor.y + d, y2, d do
+		if check_collide(actor.x, iy) then
+			return false
+		end
+	end
+	return true
+end
+
 function basic_ai_stat()
 	return {
 		throw = false,
@@ -1045,11 +1059,18 @@ function should_throw(actor, bomb)
 	-- TODO: Make this check
 	local d = actor_distance(actor, get_human(actor))
 
+	-- Drop if below
+	if abs(actor.x - get_human(actor).x) < 6 then
+		if below_is_clear(actor, get_human(actor).y) then
+			return 2
+		end
+	end
+
 	-- Very basic drop or throw. Doesn't take into account walls.
 	-- Doesn't take into account arc.
 	if d < 24 then
 		return 2
-	elseif d > 40 and d < 80 then
+	elseif d < 80 then
 		return 1
 	end
 end
