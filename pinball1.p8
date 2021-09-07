@@ -330,7 +330,7 @@ function in_tri(ax,ay,bx,by,cx,cy,px,py)
 	apab = cross(ax,ay,px,py,ax,ay,bx,by)
 	bpbc = cross(bx,by,px,py,bx,by,cx,cy)
 	cpca = cross(cx,cy,px,py,cx,cy,ax,ay)
-	--printh('('..px..','..py..') '..apab..','..bpbc..','..cpca)
+--	--printh('('..px..','..py..') '..apab..','..bpbc..','..cpca)
 	if sgn(apab) == sgn(bpbc) and sgn(bpbc) == sgn(cpca) then return true end
 	if ((apab == 0 and sgn(bpbc) == sgn(cpca)) or (bpbc == 0 and sgn(apab) == sgn(cpca)) or (cpca == 0 and sgn(apab) == sgn(bpbc))) then return true end
 	if ((apab == 0 and bpbc == 0) or (apab == 0 and cpca == 0) or (bpbc == 0 and cpca == 0)) then return true end
@@ -351,7 +351,7 @@ function collides(i, ball)
 			ball_y = ball.y - j*ball.dy/d + ycoords[k] - 4
 			--l += 1
 			if in_tri(i.x1, i.y1, i.x2, i.y2, i.x3, i.y3, ball_x, ball_y) then
-				--printh('^^ hit')
+--				--printh('^^ hit')
 				return true
 			end
 		end

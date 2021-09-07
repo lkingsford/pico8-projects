@@ -903,7 +903,7 @@ function ai(actor)
 		actor.go_to_override.t -= 1
 		go_to = actor.go_to_override.go_to
 		if actor_distance(actor, actor.go_to_override.go_to) < 4 then
-			if go_to_override.bomb_dest then
+			if actor.go_to_override.bomb_dest then
 				-- drop a bomb if bombing dest and there
 				player_bomb(actor, true)
 			elseif actor.go_to_override.jump_dest then
