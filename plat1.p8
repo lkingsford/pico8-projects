@@ -387,6 +387,7 @@ function player(actor)
 	local r = btn(1, p)
 	local u = btn(2, p)
 	local d = btn(3, p)
+	local dp = btnp(3, p)
 	local o = btnp(4, p)
 	local x = btnp(5, p)
 	if l then
@@ -399,8 +400,13 @@ function player(actor)
 	if x then
 		jump(actor)
 	end
-	if o then
+	if dp and actor.holding == nil then
 		local ground_item = check_ground(actor)
+		if ground_item then
+			pick_item(actor, ground_item)
+		end
+	end
+	if o then
 		if actor.holding then
 			if actor.holding.action then
 				actor.holding.action(actor.holding, u, d)
@@ -409,8 +415,6 @@ function player(actor)
 			else
 				throw_item(actor, actor.holding, u)
 			end
-		elseif ground_item and d then
-			pick_item(actor, ground_item)
 		else
 			player_bomb(actor, d, u)
 		end
@@ -424,11 +428,21 @@ end
 
 function check_ground(actor)
 	local i = 0
+	local potential_items = {}
 	for a in all(actors) do
 		i += 1
-		if actor != a and distance(a.dx,a.dy) < 1 and distance(a.x, a.y, actor.x, actor.y) < 4 and not a.held_by then
-			return a
+		if actor != a and distance(a.dx,a.dy) < 1 and distance(a.x, a.y, actor.x, actor.y) < 8 and not a.held_by then
+			add(potential_items, a)
 		end
+	end
+	if #actors > 0 then
+		local highest
+		for item in all(potential_items) do
+			if not highest or (item.value or 0) > highest.value then
+				highest = item
+			end
+		end
+		return highest
 	end
 end
 
