@@ -12,7 +12,7 @@ function _init()
 end
 
 function consts()
-	VERSION = "V0.1"
+	VERSION = "V0.2"
 	MAP_COUNT = 4
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
 	WIN_SCORE = 5
@@ -1333,6 +1333,7 @@ end
 --items
 function item_consts()
 	ITEMS = {lazgun, launcher, holy_hand_grenade, bat}
+	--ITEMS = {bat}
 	ID_CRATE = "CRATE"
 	ID_LAUNCHER = "LAUNCHER"
 	LAUNCHER_SPEED = 15
@@ -1769,8 +1770,9 @@ function bat()
 	bat.draw_logic = bat_draw
 	bat.swinging = nil
 	bat.action = bat_action
-	bat.value = 6
+	bat.value = 8
 	bat.hit_damage = BAT_DAMAGE
+	bat.ai_stat = bat_ai_stat
 	return bat
 end
 
@@ -1846,6 +1848,21 @@ function bat_draw(bat)
 		bat.y_adj = 0
 		bat.sprite = 74
 	end
+end
+
+function bat_ai_stat(actor, bat)
+	if bat.held_by != actor then
+		return
+	end
+	local S = basic_ai_stat()
+	S.goal = GOAL_PERSUE
+	S.target = get_other_player(actor)
+	S.weight = 8
+	if actor_distance(actor, get_other_player(actor)) < 12 then
+		S.action = true
+		S.weight = 30
+	end
+	return S
 end
 
 __gfx__
