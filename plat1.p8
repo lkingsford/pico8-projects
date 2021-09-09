@@ -288,6 +288,10 @@ function _update_game()
 	end
 end
 
+function add_no_hit(actor, to_add)
+	add(actor.no_hit, {t=15, actor=to_add})
+end
+
 function near_int(x)
 	if sgn(x % 1 - 0.5) > 0 then return ceil(x) end
 	return flr(x)
@@ -362,27 +366,34 @@ function update_actors()
 				a.dx = 0
 				a.on_floor = true
 			end
-			if a.recent_thrower != nil then
-				a.throw_time -= 1
-				if a.throw_time == 0 then a.recent_thrower = nil end
+			for na in all(a.no_hit) do
+				na.t -= 1
+				if na.t <= 0 then del(a.no_hit, na) end
 			end
 			-- Check if hit another actor that can be knocked out
 			for i in all(actors) do
 				if i != a and a.knocked != 0 then
 					local speed = distance(a.dx, a.dy)
-					if distance(i.x, i.y, a.x, a.y) < 8 and speed > 0 and a.recent_thrower != i then
-						a.collide(a)
-						i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
-						i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
-						if i.knocked >= 0 then
-							i.knocked += 20
-							sfx(5)
+					if distance(i.x, i.y, a.x, a.y) < 8 and speed > 0 then
+						local no_hit_applies = false
+						for no_hit_i in all(a.no_hit) do
+							if no_hit_i.actor == i then no_hit_applies = true end
 						end
-						a.dx = 0
-						a.dy = 0
-						a.recent_thrower = i
-						a.throw_time = 45
-						actor_damaged(i, a.hit_damage)
+						if not no_hit_applies then
+							a.collide(a)
+							i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
+							i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
+							if i.knocked >= 0 then
+								i.knocked += 20
+								sfx(5)
+							end
+							a.dx = 0
+							a.dy = 0
+							add_no_hit(a, i)
+							add_no_hit(i, a)
+							a.throw_time = 45
+							actor_damaged(i, a.hit_damage)
+						end
 					end
 				end
 			end
@@ -480,7 +491,7 @@ function drop_item(a)
 	a.holding = nil
 	item.dx = sgn(a.dx) * .5
 	item.dy = 0
-	item.recent_thrower = a
+	add_no_hit(item, a)
 	item.throw_time = 0.5
 	if check_collide(item.x, item.y) then
 		item.x = a.x
@@ -498,11 +509,11 @@ end
 
 function throw_item(a, b, up)
 	b = b or a.holding
+	add_no_hit(b, a)
 	b.held_by = nil
 	a.holding = nil
 	b.dx = a.dx + sgn(a.dx) * 3
 	b.dy = a.dy - 3
-	b.recent_thrower = a
 	b.throw_time = 0.5
 	if up then
 		b.dy -= 3
@@ -548,6 +559,7 @@ function player_bomb(actor, drop, up)
 	local b = bomb(actor)
 	b.x = actor.x
 	b.y = actor.y
+	b.no_hit = {{t=10,actor=actor}}
 	if drop then
 		pick_item(actor, b)
 		drop_item(actor)
@@ -695,7 +707,8 @@ function new_actor(sprite, logic, draw_logic)
 		held_value = -1, // Desiribility, if held
 		history = {},
 		color = 7,
-		damaged = none
+		damaged = none,
+		no_hit = {}
 	}
 end
 
