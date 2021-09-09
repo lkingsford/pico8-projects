@@ -1046,7 +1046,11 @@ function ai(actor)
 	::skip_override::
 
 	-- Doesn't account for blocking walls yet
-	if abs(actor.x - go_to.x) >= 2 then
+	if go_to.y < actor.y then
+		if (any_ladder(actor)) then
+			try_climb(actor, UP)
+		end
+	elseif abs(actor.x - go_to.x) >= 2 then
 		-- Stop the left-right cycle
 		if actor.x > go_to.x then
 			move(actor, LEFT)
@@ -1080,10 +1084,7 @@ function ai(actor)
 		actor.next_jump_allowed -= 1
 	end
 
-	if (actor.on_floor) then
-	else
-	end
-	if (not actor.next_jump_allowed or actor.next_jump_allowed <= 0) and actor.y > go_to.y and actor.on_floor then
+	if (not actor.next_jump_allowed or actor.next_jump_allowed <= 0) and actor.y > go_to.y and actor.on_floor and not actor.climbing then
 		jump(actor)
 		actor.next_jump_allowed = rnd(AI_NEXT_JUMP_MAX - AI_NEXT_JUMP_MIN) + AI_NEXT_JUMP_MIN
 	end
