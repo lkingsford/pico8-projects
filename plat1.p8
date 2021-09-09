@@ -1332,8 +1332,7 @@ end
 -->8
 --items
 function item_consts()
-	--ITEMS = {lazgun, launcher, holy_hand_grenade, bat}
-	ITEMS = {bat}
+	ITEMS = {lazgun, launcher, holy_hand_grenade, bat}
 	ID_CRATE = "CRATE"
 	ID_LAUNCHER = "LAUNCHER"
 	LAUNCHER_SPEED = 15
