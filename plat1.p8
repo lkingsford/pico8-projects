@@ -12,7 +12,7 @@ function _init()
 end
 
 function consts()
-	VERSION = "V0.2"
+	VERSION = "V0.3"
 	MAP_COUNT = 8
 	FIREY_PART_COLORS = {7,8,8,9,9,9,10,10,10,10}
 	WIN_SCORE = 5
@@ -743,6 +743,7 @@ function new_actor(sprite, logic, draw_logic)
 		color = 7,
 		damaged = none,
 		no_hit = {},
+		no_explode = {},
 		climbing = false
 	}
 end
@@ -1451,6 +1452,14 @@ function bomb_ai_stat(actor, bomb)
 	return S
 end
 
+function in_table(table, item)
+	-- Return if item in table (values)
+	for i in all(table) do
+		if item == i then return true end
+	end
+	return false
+end
+
 function explode(b)
 	del(actors, b)
 	local x = b.x / 8
@@ -1469,7 +1478,7 @@ function explode(b)
 	-- Throw actors around
 	b.y  += 2-- Make sure it's a little down to push actor up
 	for a in all(actors) do
-	if b != a then
+	if b != a and not(in_table(b.no_explode, a)) then
 		if distance(a.x, a.y, b.x, b.y) <= (b.r * 8 + 4) then
 			btheta = atan2(a.x-b.x, a.y-b.y)
 			local v = 10
@@ -1757,6 +1766,7 @@ function lazgun_action(lazgun, up, down)
 		i.gravity = false
 		i.t = 5
 		i.explosion_damage = 15
+		i.no_explode = {lazgun.held_by}
 		add(actors, i)
 		still_going = ix < 128 and ix > 0 and not fget(mget(flr(ix/8),flr(i.y)/8),1)
 	end
