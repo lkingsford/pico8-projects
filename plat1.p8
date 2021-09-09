@@ -896,10 +896,14 @@ function ai(actor)
 				item_value = a.value
 			end
 			if item_value >= 0 and (not a.holding or a.holding.value < item_value) then
+				-- Weight grabbing an item better if it's nearby
+				local D = actor_distance(a, actor)
+				local adjusted_value = item_value * max((64/D),1)
+				printh(item_value.."->"..adjusted_value..' D '..D)
 				add(goals, {
 					goal=GOAL_ITEM,
 					target = a,
-					weight=item_value
+					weight=adjusted_value
 				})
 			end
 		end
