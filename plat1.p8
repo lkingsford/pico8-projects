@@ -339,6 +339,9 @@ function update_actors()
 			a.x = a.held_by.x + sgn(a.held_by.dx) * 3
 			a.y = a.held_by.y - 3
 		else
+			if a.climbing then
+				a.jumps = 0
+			end
 			-- Move. Doing multiple per frame.
 			if max(abs(a.dx), abs(a.dy)) > 0 then
 				local steps = 5
@@ -549,11 +552,16 @@ end
 
 function any_ladder(actor)
 	local map_x = near_int(actor.x / 8)
-	local map_y = near_int(actor.y / 8)
+	local map_y = mid(0,near_int(actor.y / 8), 15)
+	if (actor == p0) printh(map_y)
 	if mget(map_x, map_y) == 7 then
 		return true
 	end
+	if map_y == 0 and mget(map_x, 15) == 7 then
+		return true
+	end
 end
+
 
 function try_climb(actor, direction)
 	if not (any_ladder(actor)) then
