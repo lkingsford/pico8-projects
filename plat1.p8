@@ -25,6 +25,8 @@ function consts()
 	UP = -1
 	DOWN = 1
 	THROW_BOMB_FRAME_GAP = 3
+	MAX_GRAVITY = 4
+	GRAV_STRENGTH = .3
 	ai_consts()
 	item_consts()
 	mode_consts()
@@ -421,7 +423,7 @@ function update_actors()
 			a.y = a.y % 128
 			-- Gravity
 			if a.gravity and not a.climbing then
-				a.dy = min(4,a.dy+0.3)
+				a.dy = min(MAX_GRAVITY,a.dy+GRAV_STRENGTH)
 			end
 		end
 		a.logic(a)
@@ -1073,6 +1075,15 @@ function ai(actor)
 			stuck = false
 		end
 	end
+	-- Catch the annoying teddy and ai both in freefall
+	if S.goal == GOAL_PERSUE and
+		actor.dy > (MAX_GRAVITY - 1) and
+		abs(actor.dx) < 1 and
+		abs(go_to.dx or 0) < 1
+		and (go_to.dy or 0) > (MAX_GRAVITY - 1) then
+			stuck = true
+			printh("Possible freefall")
+	end
 	if stuck then
 		-- To do - make this cleverer
 		local action = flr(rnd(3))
@@ -1103,7 +1114,7 @@ function ai(actor)
 
 	-- Cycle history for stuck detection
 	add(actor.history, {x = actor.x, y = actor.y})
-	if #actor.history > 4 then deli(actor.history, 1) end
+	if #actor.history > 6 then deli(actor.history, 1) end
 end
 
 function run_away_to(run_from)
@@ -1837,13 +1848,15 @@ function teddy_logic(ted)
 			if ted.t == 0 then explode(ted) end
 			return
 		end
-		teddy.last_beep += 1
-		if teddy.last_beep >= 60 then teddy_beep(ted) end
-		if teddy.last_beep >= 30 and ted.held_by.capture_time < 10 then teddy_beep(ted) end
-		if teddy.last_beep >= 7 and ted.held_by.capture_time < 5 then teddy_beep(ted) end
-		if teddy.last_beep >= 5 and ted.held_by.capture_time < 1 then teddy_beep(ted) end
+		ted.last_beep += 1
+		if ted.last_beep >= 60 then teddy_beep(ted) end
+		if ted.last_beep >= 30 and ted.held_by.capture_time < 10 then teddy_beep(ted) end
+		if ted.last_beep >= 7 and ted.held_by.capture_time < 5 then teddy_beep(ted) end
+		if ted.last_beep >= 5 and ted.held_by.capture_time < 1 then teddy_beep(ted) end
 	else
-		teddy.last_beep = 0
+		ted.last_beep = 0
+		-- Teddy needs to start drifting if in freefall
+		if (ted.dy > 2) and abs(ted.dx) < 1 then ted.dx += sgn(ted.dx)*.01 end
 	end
 end
 
