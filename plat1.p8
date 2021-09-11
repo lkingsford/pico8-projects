@@ -837,8 +837,7 @@ function _init_round(map, mode, take_state)
 	anim_f = 0
 	init_back()
 	-- Update rnd for new map
-	--load_map(map or flr(rnd(MAP_COUNT)))
-	load_map(6)
+	load_map(map or flr(rnd(MAP_COUNT)))
 	fore_parts = {}
 	shakes = {}
 
@@ -1545,7 +1544,7 @@ function explode_p(b, x, y)
 	p.y = y or b.y + rnd(b.r * 2) - b.r
 	p.x2 = rnd(1) - .5
 	p.y2 = rnd(1) - .5
-	p.r = rnd(b.r) + 3
+	p.r = rnd(b.r*2) + 3
 	p.c = rnd(FIREY_PART_COLORS)
 	p.c2 = rnd(FIREY_PART_COLORS)
 	theta = atan2(b.x-p.x, b.y-p.y)
@@ -1711,7 +1710,7 @@ function launcher_action(b, up, down)
 	i.direction = sgn(b.held_by.dx)
 	i.flip = i.direction < 0
 	i.dx = sgn(b.held_by.dx)
-	i.x = b.x + i.dx * 8
+	i.x = b.x + i.dx * 16
 	i.y = b.y + 1
 	i.r = 2.5
 	i.logic = missile_update
@@ -1719,6 +1718,7 @@ function launcher_action(b, up, down)
 	i.collide = explode
 	i.explosion_damage = 10
 	b.last_action = 0
+	add_no_hit(i, b.held_by)
 	add(actors, i)
 end
 
