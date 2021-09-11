@@ -837,7 +837,8 @@ function _init_round(map, mode, take_state)
 	anim_f = 0
 	init_back()
 	-- Update rnd for new map
-	load_map(map or flr(rnd(MAP_COUNT)))
+	--load_map(map or flr(rnd(MAP_COUNT)))
+	load_map(6)
 	fore_parts = {}
 	shakes = {}
 
@@ -1471,12 +1472,17 @@ function explode(b)
 	del(actors, b)
 	local x = b.x / 8
 	local y = b.y / 8
+	local boomed = {}
 	for ix = x - b.r, x + b.r do
 	for iy = y - b.r, y + b.r do
 		if ceil(distance(x+0.5,y+0.5,ix,iy)) <= b.r then
-			if not fget(mget(ix,iy),1) or b.nuke then
-				remove_grass(ix, iy)
-				mset(ix, iy, 0)
+			local _ix = ix % 16
+			local _iy = iy % 16
+			printh(ix ..','..iy)
+			if not fget(mget(_ix,_iy),1) or b.nuke then
+				remove_grass(_ix, _iy)
+				mset(_ix, _iy, 0)
+				add(boomed, {x=_ix, y=_iy})
 			end
 		end
 	end
@@ -1504,22 +1510,12 @@ function explode(b)
 	local high = b.r * 4
 	local low = 0
 	local theta = 0
-	for i = high, low, -0.5 do
-		local p = {}
-		p.draw = draw_explode_part
-		p.update = update_basic_part
-		p.x = b.x + rnd(b.r * 2) - (b.r)
-		p.y = b.y + rnd(b.r * 2) - (b.r)
-		p.x2 = rnd(1) - .5
-		p.y2 = rnd(1) - .5
-		p.r = i
-		p.c = rnd(FIREY_PART_COLORS)
-		p.c2 = rnd(FIREY_PART_COLORS)
-		theta = atan2(b.x-p.x, b.y-p.y)
-		p.dx = i * sin(theta)
-		p.dy = i * cos(theta)
-		p.t = rnd(high-i) * 2
-		p.gravity = true
+	for i = 0, 10 do
+		local p = explode_p(b, nil, nil)
+		add(fore_parts, p)
+	end
+	for i in all(boomed) do
+		local p = explode_p(b, i.x * 8 - 4, i.y * 8 -  4)
 		add(fore_parts, p)
 	end
 	for i = 0, 20 do
@@ -1539,6 +1535,25 @@ function explode(b)
 
 	flash = true
 	add_screen_shake(4, 1)
+end
+
+function explode_p(b, x, y)
+	local p = {}
+	p.draw = draw_explode_part
+	p.update = update_basic_part
+	p.x = x or b.x + rnd(b.r * 2) - b.r
+	p.y = y or b.y + rnd(b.r * 2) - b.r
+	p.x2 = rnd(1) - .5
+	p.y2 = rnd(1) - .5
+	p.r = rnd(b.r) + 3
+	p.c = rnd(FIREY_PART_COLORS)
+	p.c2 = rnd(FIREY_PART_COLORS)
+	theta = atan2(b.x-p.x, b.y-p.y)
+	p.dx = rnd(b.r * 2) * sin(theta)
+	p.dy = rnd(b.r * 2) * cos(theta)
+	p.t = rnd(b.r * 2) + 3
+	p.gravity = true
+	return p
 end
 
 function draw_explode_part(p)
