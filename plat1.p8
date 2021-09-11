@@ -297,7 +297,7 @@ function _update_game()
 end
 
 function add_no_hit(actor, to_add)
-	add(actor.no_hit, {t=15, actor=to_add})
+	add(actor.no_hit, {t=20, actor=to_add})
 end
 
 function near_int(x)
@@ -391,7 +391,7 @@ function update_actors()
 						for no_hit_i in all(a.no_hit) do
 							if no_hit_i.actor == i then no_hit_applies = true end
 						end
-						if not no_hit_applies then
+						if not no_hit_applies and not i.held_by then
 							a.collide(a)
 							i.dx = (a.dx * a.weight + i.dx * i.weight) / 2
 							i.dy = (a.dy * a.weight + i.dy * i.weight) / 2
@@ -522,6 +522,10 @@ function drop_item(a)
 end
 
 function pick_item(a, item)
+	-- Avoid picking something up as soon as dropping it
+	for i in all(item.no_hit or {}) do
+		if i.actor == a then return end
+	end
 	if a.holding then
 		drop_item(a)
 	end
