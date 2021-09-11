@@ -1076,7 +1076,7 @@ function ai(actor)
 	if stuck then
 		-- To do - make this cleverer
 		local action = flr(rnd(3))
-		if action == 0 then
+		if action == 0 and (not actor.holding or actor.holding.value < 10) then
 			player_bomb(actor, true)
 		elseif action == 1 then
 			move(actor, LEFT)
@@ -1305,7 +1305,7 @@ function ai_ctf(actor)
 		else
 			-- Got teddy
 			stat.goal = GOAL_RUN
-			stat.weight = 10
+			stat.weight = 30
 			stat.target = get_other_player(actor)
 		end
 	else
@@ -1454,7 +1454,7 @@ function bomb_ai_stat(actor, bomb)
 		S.goal = GOAL_RUN
 		S.target = bomb
 		-- Make a bigger bomb more important to run from
-		S.weight = 10 + bomb.explosion_damage
+		S.weight = 25 + bomb.explosion_damage
 	end
 	return S
 end
