@@ -1477,7 +1477,6 @@ function explode(b)
 		if ceil(distance(x+0.5,y+0.5,ix,iy)) <= b.r then
 			local _ix = ix % 16
 			local _iy = iy % 16
-			printh(ix ..','..iy)
 			if not fget(mget(_ix,_iy),1) or b.nuke then
 				remove_grass(_ix, _iy)
 				mset(_ix, _iy, 0)
