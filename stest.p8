@@ -59,8 +59,8 @@ game={
 			0.03, --dtheta
 			0, --t_offset
 			0, --theta
-			nil --parent
-		))
+			nil) --parent
+		)
 	end
 }
 
@@ -126,7 +126,7 @@ player_shot={
 	update = function(self)
 		self.dy=lim(0, self.dymax,self.dy+self.ddy)
 		self.y+=self.dy
-		add(self.game.entities,trail_shot:C(real_x(self),real_y(self),real_y(self),self.c))
+		add(self.game.entities,trail_shot:C(real_x(self),real_y(self),real_y(self)-self.dy,self.c))
 	end,
 	draw = function(self)
 		line(self.x,self.y,self.x,self.y+self.dy,self.c)
