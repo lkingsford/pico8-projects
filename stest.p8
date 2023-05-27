@@ -44,9 +44,23 @@ game={
 	end,
 	start=function(self)
 		add(self.entities,player:C(self))
-		--add(self.entities,straight_shooter:C(self,32, 32, 1.5, 0, 15))
+		add(self.entities,straight_shooter:C(self,32, 32, 0, 0, 1.5, 0, 15))
 		--add(self.entities,circle_shooter:C(self, 32, 64, 1, 10, 15))
-		add(self.entities,circle_shooter:C(self, 96, 64, 2, 3, 2, 0,.1))
+		add(self.entities,circle_shooter:C(
+			self, --game
+			0, --x
+			0, --y
+			0, --dx
+			0, --dy
+			2, --target_d
+			2, --amount
+			0.5, --interval
+			0, --inital_radius
+			0.03, --dtheta
+			0, --t_offset
+			0, --theta
+			nil --parent
+		))
 	end
 }
 
@@ -63,7 +77,7 @@ function entity_draw(self)
 	else
 		s = self.s
 	end
-	spr(s, self.x-w/2, self.y-h/2, w/8, h/8)
+	spr(s, real_x(self)-w/2, real_y(self)-h/2, w/8, h/8)
 end
 
 player={
@@ -99,7 +113,7 @@ player={
 	end,
 	draw=entity_draw,
 	fire=function(self)
-		add(self.game.entities,player_shot:C(self.x, self.y, self.game))
+		add(self.game.entities,player_shot:C(real_x(self), real_y(self), self.game))
 	end
 }
 
@@ -112,7 +126,7 @@ player_shot={
 	update = function(self)
 		self.dy=lim(0, self.dymax,self.dy+self.ddy)
 		self.y+=self.dy
-		add(self.game.entities,trail_shot:C(self.x,self.y,self.y-self.dy,self.c))
+		add(self.game.entities,trail_shot:C(real_x(self),real_y(self),real_y(self),self.c))
 	end,
 	draw = function(self)
 		line(self.x,self.y,self.x,self.y+self.dy,self.c)
@@ -139,53 +153,56 @@ trail_shot={
 	end
 }
 
-function enemy_cleanup(self)
-	return false
-end
-
-function bullet_cleanup(self)
-	return self.x < -16 or self.y < -16 or self.x > 144 or self.y > 144
+function default_cleanup(self)
+	w=din(self.w,0)
+	h=din(self.h,0)
+	if (self.parent and self.parent.cleanup and self.parent.cleanup()) then return true end
+	x=real_x(self)
+	y=real_y(self)
+	return x < -w or y < -h or x > 128+w or y > 128+h
 end
 
 straight_shooter = {
-	C=function(self,game,x,y,target_dx,target_dy,interval)
-		o={game=game,x=x,y=y,target_dx=target_dx,target_dy=target_dy,interval=interval,t=0,l=1,s=2,w=8,h=8}
+	C=function(self,game,x,y,dx,dy,target_dx,target_dy,interval,parent)
+		o={game=game,x=din(x,0),y=din(y,0),dx=din(dx,0),dy=din(dy,0),target_dx=target_dx,target_dy=target_dy,interval=interval,t=0,l=1,s=2,w=8,h=8,parent=parent}
 		setmetatable(o,{__index=self})
 		return o
 	end,
 	update=function(self)
 		self.t+=1
 		if self.t>self.interval then
-			add(self.game.entities, basic_bullet:C(self.game,self.x, self.y, self.target_dx, self.target_dy, {17,18}))
+			add(self.game.entities, basic_bullet:C(self.game,real_x(self), real_y(self), self.target_dx, self.target_dy, {17,18}))
 			self.t=0
 		end
 	end,
 	draw=entity_draw,
-	cleanup=enemy_cleanup(self)
+	cleanup=default_cleanup
 }
 
 circle_shooter = {
-	C=function(self,game,x,y,target_d,amount,interval,initial_radius,dtheta)
-		local o={game=game,x=x,y=y,target_d=target_d,amount=amount,initial_radius=initial_radius,interval=interval,t=0,l=1,s=3,dtheta=dtheta,theta=0}
+	C=function(self,game,x,y,dx,dy,target_d,amount,interval,initial_radius,dtheta,t_offset,theta,parent)
+		local o={game=game,x=din(x,0),y=din(y,0),dx=din(dx,0),dy=din(dy,0),target_d=target_d,amount=amount,initial_radius=initial_radius,interval=interval,t=0,l=1,s=3,dtheta=din(dtheta,0),theta=din(theta,0),t_offset=din(t_offset,0),parent=parent}
 		setmetatable(o,{__index=self})
 		return o
 	end,
 	update=function(self)
 		local r=din(self.initial_radius,0)
-		self.t+=1
-		self.theta+=din(self.dtheta,0)
-		print(self.theta,100,100)
+		self.t+=1+self.t_offset
+		self.theta+=self.dtheta
+		self.x+=self.dx
+		self.y+=self.dy
 		if self.t>self.interval then
 			for i=1,self.amount do
 				local t = i/self.amount+self.theta
 				local st = sin(t)
 				local ct = cos(t)
-				add(self.game.entities, basic_bullet:C(self.game,self.x+ct*r,self.y+st*r,self.target_d*ct,self.target_d*st,{17,18}))
+				add(self.game.entities, basic_bullet:C(self.game,real_x(self)+ct*r,real_y(self)+st*r,self.target_d*ct,self.target_d*st,{17,18}))
 			end
 			self.t=0
 		end
 	end,
-	draw=entity_draw
+	draw=entity_draw,
+	cleanup=default_cleanup,
 }
 
 basic_bullet={
@@ -200,7 +217,7 @@ basic_bullet={
 		self.t+=1
 	end,
 	draw=entity_draw,
-	cleanup=bullet_cleanup,
+	cleanup=default_cleanup,
 }
 
 function lim(a,b,c)
@@ -223,6 +240,14 @@ function din(v,default)
 	return v
 end
 
+function real_x(e)
+	if e.parent then return e.x + e.parent.x else return e.x end
+end
+
+function real_y(e)
+	if e.parent then return e.y + e.parent.y else return e.y end
+end
+
 __gfx__
 00000000000000000000000000090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000999999000909000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -234,10 +259,10 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000009999000044440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000090000900499994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000900000094900009400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000900880094908809400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000900880094908809400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000900000094900009400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000900000094900009400888800008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000009008800949088094008ee800008778000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000009008800949088094008ee800008778000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000900000094900009400888800008888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000090000900499994000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000009999000044440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
