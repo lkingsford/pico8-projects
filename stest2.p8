@@ -11,6 +11,7 @@ function _update()
 		for u in all(e.updates) do
 			u(e)
 		end
+		if e:cleanup() then del(entities, e) end
 	end
 end
 
@@ -67,12 +68,8 @@ function merge(ts)
 end
 
 function default_cleanup(e)
-	w=din(e.w,0)
-	h=din(e.h,0)
 	if (e.parent and e.parent:cleanup()) then return true end
-	x=real_x(self)
-	y=real_y(self)
-	return x < -w or y < -h or x > 128+w or y > 128+h
+	return e.x < -e.w or e.y < -e.h or e.x > 128+e.w or e.y > 128+e.h
 end
 
 function player_update()
@@ -106,8 +103,8 @@ entity_template={
 	params={},
 }
 
-player_template={
-}
+player_template=merge({entity_template, {
+}})
 
 function should_shoot(e)
 	return ((t+e.t_offset)/e.params.shoot_interval) % 1 == 0
