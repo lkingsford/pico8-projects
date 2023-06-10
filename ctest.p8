@@ -86,6 +86,11 @@ stream = {
 	end,
 	eof = function(self)
 		return self.cursor[1] > #self.data
+	end,
+	push_to_end = function(self)
+	-- pushes to a new byte at end
+		self.cursor[1] = #self.data + 1
+		self.cursor[2] = 1
 	end
 }
 
@@ -130,6 +135,26 @@ function huff_enc_node(node, stream)
 	end
 end
 
+function contains(table, v)
+	for c in all(table.c) do
+		if c == v then return true end
+	end	
+	return false
+end
+
+function huff_enc_char(output, v, tree)
+	if #tree.c <= 1 then return end
+	if contains(tree.l, v) then
+		output:bit_push(0) 	
+		huff_enc_char(output, v, tree.l)
+	elseif contains(tree.r, v) then
+		output:bit_push(1)
+		huff_enc_char(output, v, tree.r)
+	else
+		print("character "..v.. " not found in tree")
+	end
+end
+
 function huff_enc(data)
 	local nodes, node_count = generate_huff_tree(data)
 
@@ -141,6 +166,13 @@ function huff_enc(data)
 	local output = stream:c()
 	huff_enc_node(nodes, output)
 	output:byte_insert(#output.data,1)
+	output:push_to_end()
+	
+	output:byte_push(band(#data, 255))
+	output:byte_push(shr(band(#data, 32512), 8))
+	for v in all(data) do
+		huff_enc_char(output, v, nodes)
+	end
 	return output.data
 end
 
@@ -193,12 +225,10 @@ function draw_tree(node, x, y, layer)
 	print(c,x-#node.c*2,y-1,8) end
 end
 
---mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
--- print("uncompressed length: ".. #mmg_song)
-mmg_song = chr(1) .. chr(1) .. chr(2) .. chr(3) .. chr(4) .. chr(5) .. chr(5)
+mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
+print("uncompressed length: ".. #mmg_song)
+--mmg_song = chr(1) .. chr(1) .. chr(2) .. chr(3) .. chr(4) .. chr(5) .. chr(5)
 compressed = huff_enc(str_to_bytes(mmg_song))
-
-cls()
 
 print("compressed length:" .. #compressed)
 decompressed = huff_dec(compressed)
@@ -209,6 +239,7 @@ if compressed == decompressed then print("decompressed matches") else print("dec
 --print(decompressed.l)
 --print(decompressed.r)
 
+stop()
 cx=64
 cy=10
 function _update()
