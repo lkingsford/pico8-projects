@@ -65,6 +65,14 @@ stream = {
 			self:bit_push(shr(band(v, shl(1, i))), i)
 		end
 	end,
+	byte_insert = function(self, v, l)
+	 	local new_data = {}
+		for i, cv in ipairs(self.data) do
+			if i == l then add(new_data, v) end
+			add(new_data, cv)
+		end
+		self.data = new_data
+	end,
 	next = function(self)
 		self.cursor[2] += 1
 		if self.cursor[2] == 9 then self.cursor[1] += 1 self.cursor[2] = 1 end
@@ -127,46 +135,38 @@ function huff_enc(data)
 
 	-- Encode huffman tree - 
 	-- Encoded as byte N, followed by a series of a bit 'b', then optionally byte 'B'. 
-	-- N is total number of nodes
+	-- N is the size of the tree in bytes
 	-- b is if current node is leaf (1) or branch (0)
 	-- B is (if leaf) the value of the leaf
 	local output = stream:c()
-	output:byte_push(node_count)
 	huff_enc_node(nodes, output)
+	output:byte_insert(#output.data,1)
 	return output.data
+end
+
+function huff_dec_node(input, last_byte)
+	if input.cursor[1] > last_byte then return {c={}} end
+	if input:bit_read() == 0 then
+		-- branch
+		local l = huff_dec_node(input, last_byte)
+		local r = huff_dec_node(input, last_byte)
+		local c = {}
+		for i in all(l.c) do add(c, i) end
+		for i in all(r.c) do add(c, i) end
+		return {c=c, l=l, r=r}
+	else
+		-- leaf
+		return {c={input:byte_read()}}
+	end
 end
 
 function huff_dec(data)
 	local input = stream:c(data)
 	print("data # is " .. #data .. " [1] is " .. data[1])
-	local node_count = input:byte_read()
-	print("node count = " .. node_count)
-	local root = {}
-	stack = {root}
-	leafs = {}
+	local byte_count = input:byte_read()
+	local leafs = {}
 	-- Decode huffman tree
-	while #leafs < node_count do
-		if input:bit_read() == 1 then
-			print("leaf")
-			-- leaf
-			local byte = input:byte_read()
-			local leaf = {c={byte}, p=stack[#stack]}
-			add(leafs, leaf)
-			local n = leaf.p
-			while n do 
-				add(n.c,leaf.c[0]) 
-				n = n.p
-			end
-			if stack[#stack].l == nil then stack[#stack].l = leaf print('set l') else stack[#stack].r = leaf print('set r') end
-			while #stack > 1 and n != nil and n.l != nil and n.r != nil do n=stack[#stack] del(stack, n) end
-			print("after while")
-		else
-			print("branch")
-			-- branch
-			add(stack, {c={},p=stack[#stack]})
-		end
-		print(#leafs)
-	end
+	root=huff_dec_node(input, byte_count + 1)
 	return root
 end
 
@@ -189,24 +189,25 @@ function draw_tree(node, x, y, layer)
 	end
 	local c = ""	
 	if node.c then 
-		for i in all(node.c) do c ..= chr(i) end
+		for i in all(node.c) do c ..= i end
 	print(c,x-#node.c*2,y-1,8) end
 end
 
 --mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
 -- print("uncompressed length: ".. #mmg_song)
-mmg_song = chr(1) .. chr(1) .. chr(2) .. chr(3) .. chr(4) .. chr(5)
+mmg_song = chr(1) .. chr(1) .. chr(2) .. chr(3) .. chr(4) .. chr(5) .. chr(5)
 compressed = huff_enc(str_to_bytes(mmg_song))
 
 cls()
 
 print("compressed length:" .. #compressed)
 decompressed = huff_dec(compressed)
+--stop()
 if compressed == decompressed then print("decompressed matches") else print("decompressed does not match") end
 
---tree = generate_huff_tree(str_to_bytes(mmg_song))
-print(decompressed.l)
-print(decompressed.r)
+-- tree = generate_huff_tree(str_to_bytes(mmg_song))
+--print(decompressed.l)
+--print(decompressed.r)
 
 cx=64
 cy=10
@@ -218,5 +219,5 @@ function _update()
 end
 -- 
 function _draw()
-	draw_tree(stack[2], cx, cy)
+	draw_tree(decompressed, cx, cy)
 end
