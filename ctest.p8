@@ -72,10 +72,17 @@ stream = {
 		self:byte_push(band(v, 255))
 		self:byte_push(shr(band(v, 65280), 8))
 	end,
-	byte_insert = function(self, v, l)
+	short_insert = function(self, v, l)
+		self:bytes_insert({band(v, 255),shr(band(v,65280,8))},l)
+	end,
+	bytes_insert = function(self, v, l)
 	 	local new_data = {}
 		for i, cv in ipairs(self.data) do
-			if i == l then add(new_data, v) end
+			if i == l then 
+				for j in all(v) do
+					add(new_data, j)
+				end
+			end
 			add(new_data, cv)
 		end
 		self.data = new_data
@@ -153,6 +160,7 @@ function contains(table, v)
 	return false
 end
 
+
 function huff_enc_char(output, v, tree)
 	if #tree.c <= 1 then return end
 	if contains(tree.l, v) then
@@ -176,7 +184,6 @@ function huff_enc(data)
 	-- B is (if leaf) the value of the leaf
 	local output = stream:c()
 	huff_enc_node(nodes, output)
-	output:byte_insert(#output.data,1)
 	output:push_to_end()
 	output:short_push(#data)
 
@@ -186,12 +193,11 @@ function huff_enc(data)
 	return output.data
 end
 
-function huff_dec_node(input, last_byte)
-	if input.cursor[1] > last_byte then return {c={}} end
+function huff_dec_node(input)
 	if input:bit_read() == 0 then
 		-- branch
-		local l = huff_dec_node(input, last_byte)
-		local r = huff_dec_node(input, last_byte)
+		local l = huff_dec_node(input)
+		local r = huff_dec_node(input)
 		local c = {}
 		for i in all(l.c) do add(c, i) end
 		for i in all(r.c) do add(c, i) end
@@ -204,15 +210,14 @@ end
 
 function huff_dec(data)
 	local input = stream:c(data)
-	local byte_count = input:byte_read()
 	local leafs = {}
 	-- Decode huffman tree
-	root=huff_dec_node(input, byte_count + 1)
+	local root=huff_dec_node(input)
 	-- File size
 	input:next_actual_byte()
-	output_size=input:short_read()
-	output = {}
-	node = root
+	local output_size=input:short_read()
+	local output = {}
+	local node = root
 	while #output < output_size do
 		if input:bit_read() == 0 then
 			node = node.l
@@ -312,23 +317,34 @@ function compress(d)
 end
 
 function decompress(d)
-	return huff_dec(rle_dec(d))
+	return rle_dec(huff_dec(d))
+end
+
+function t_equal(t1, t2)
+	if #t1 != #t2 then return false end
+	for i, j in pairs(t1) do
+		if j != t2[i] then return false end
+	end
+	return true
 end
 
 mmg_song = "i am the very model of a modern major-general i've information vegetable, animal, and mineral i know the kings of england, and i quote the fights historical from marathon to waterloo, in order categorical i'm very well acquainted, too, with matters mathematical i understand equations, both the simple and quadratical about binomial theorem i'm teeming with a lot o' news with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotepotenuse i'm very good at integral and differential calculus i know the scientific names of beings animalculous in short, in matters vegetable, animal, and mineral i am the very model of a modern major-general in short, in matters vegetable, animal, and mineral he is the very model of a modern major-general"
---mmg_song = "abc cde ccc"
-compressed = compress(str_to_bytes(mmg_song))
-decompressed = bytes_to_str(decompress(compressed))
+compressed = huff_enc(str_to_bytes(mmg_song))
+decompressed = bytes_to_str(huff_dec(compressed))
 
 print("mmg:" .. #mmg_song .. "->" .. #compressed)
---stop()
 if mmg_song == decompressed then print("decompressed matches") else print("decompressed does not match") end
+print(decompressed)
 
-packed_sprites = sprites_to_bytes(true,false)
-print("packed spr:" .. #packed_sprites .. '=>' .. #compress(packed_sprites))
+unpacked_sprites = sprites_to_bytes(true,false)
+compressed_ups = compress(unpacked_sprites)
+print("unpacked spr:" .. #unpacked_sprites .. '=>' .. #compressed_ups)
+if t_equal(unpacked_sprites, decompress(compressed_ups)) then print("decompressed matches") else print("decompressed does not match") end
 
-unpacked_sprites = sprites_to_bytes(false,false)
-print("unpacked spr:" .. #unpacked_sprites .. '=>' .. #compress(unpacked_sprites))
+packed_sprites = sprites_to_bytes(false,false)
+compressed_ps = compress(packed_sprites)
+print("packed spr:" .. #packed_sprites .. '=>' .. #compressed_ps)
+if t_equal(packed_sprites, decompress(compressed_ps)) then print("decompressed matches") else print("decompressed does not match") end
 
 stop()
 cx=64
@@ -343,7 +359,6 @@ end
 function _draw()
 	draw_tree(decompressed, cx, cy)
 end
---for i = 5,#mmg_song do s=sub(mmg_song,1,i); if (bytes_to_str(decompress(compress(str_to_bytes(s))))==s) then print(i .. " matches") else print (i .. " does not match") end end
 __gfx__
 00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
