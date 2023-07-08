@@ -204,7 +204,6 @@ end
 
 function huff_dec(data)
 	local input = stream:c(data)
-	print("data # is " .. #data .. " [1] is " .. data[1])
 	local byte_count = input:byte_read()
 	local leafs = {}
 	-- Decode huffman tree
@@ -212,7 +211,6 @@ function huff_dec(data)
 	-- File size
 	input:next_actual_byte()
 	output_size=input:short_read()
-	print("listed output_size is ".. output_size)
 	output = {}
 	node = root
 	while #output < output_size do
@@ -252,13 +250,85 @@ function draw_tree(node, x, y, layer)
 	print(c,x-#node.c*2,y-1,8) end
 end
 
-mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
-compressed = huff_enc(str_to_bytes(mmg_song))
-decompressed = bytes_to_str(huff_dec(compressed))
+function sprites_to_bytes(unpack, low_and_high)
+	if low_and_high then l = 0x0fff else l = 0x1fff end
+	o = {}
+	for i = 1,l do
+		b = @i
+		if unpack then
+			add(o, band(b, 15))
+			add(o, band(b, 240))
+		else
+			add(o, b)
+		end
+	end
+	return o
+end
 
-print("mmg:" .. #decompressed .. "->" .. #compressed)
+function rle_enc(d)
+	local o = {}
+	local c = 1
+	local last_byte = nil
+	while c <= #d do
+	 	if d[c] == last_byte then 
+		  	add(o, d[c])
+			local cu = -1
+			while d[c] == last_byte and c <= #d and c <= 255 do
+				c += 1
+				cu += 1
+			end
+			add(o,cu)
+			last_byte = nil
+		else
+			add(o, d[c])
+			last_byte = d[c]
+			c += 1
+		end
+	end
+	return o
+end
+
+function rle_dec(d)
+	local o = {}
+	local s = stream:c(d)
+	local last_byte = ""
+	while not s:eof() do
+		local b = s:byte_read()	
+		add(o, b)
+		if last_byte == b then
+			for i = 1, s:byte_read() do
+				add(o, b)
+			end
+			last_byte = ""
+		else
+			last_byte=b
+		end
+	end
+	return o
+end
+
+function compress(d)
+	return huff_enc(rle_enc(d))
+end
+
+function decompress(d)
+	return huff_dec(rle_dec(d))
+end
+
+mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, "--and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
+--mmg_song = "abc cde ccc"
+compressed = compress(str_to_bytes(mmg_song))
+decompressed = bytes_to_str(decompress(compressed))
+
+print("mmg:" .. #mmg_song .. "->" .. #compressed)
 --stop()
 if mmg_song == decompressed then print("decompressed matches") else print("decompressed does not match") end
+
+packed_sprites = sprites_to_bytes(true,false)
+print("packed spr:" .. #packed_sprites .. '=>' .. #compress(packed_sprites))
+
+unpacked_sprites = sprites_to_bytes(false,false)
+print("unpacked spr:" .. #unpacked_sprites .. '=>' .. #compress(unpacked_sprites))
 
 stop()
 cx=64
@@ -273,3 +343,18 @@ end
 function _draw()
 	draw_tree(decompressed, cx, cy)
 end
+__gfx__
+00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111111114444440444444044000000000000000000888000000888000000000000000000000000000000000000000000000000000000000000000000
+00000000111111110000000000000000000000000000000000888000000888000000000000000000000000000000000000000000000000000000000000000000
+00000000111111115550555555555055000000000000000000888000000888000000000000000000000000000000000000000000000000000000000000000000
+00000000111111115550555555555055000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111111115550555555555055000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000
+00000000111111115550555555555055000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000001010000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000009000000090000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000009999999990000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000999999900000000000000000000000000000000000000000000000000000000000000000000
