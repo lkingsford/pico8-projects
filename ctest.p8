@@ -268,17 +268,17 @@ end
 function rle_enc(d)
 	local o = {}
 	local c = 1
-	local last_byte = nil
+	local last_byte = ""
 	while c <= #d do
 	 	if d[c] == last_byte then 
 		  	add(o, d[c])
 			local cu = -1
-			while d[c] == last_byte and c <= #d and c <= 255 do
+			while d[c] == last_byte and c <= #d and cu < 254 do
 				c += 1
 				cu += 1
 			end
 			add(o,cu)
-			last_byte = nil
+			last_byte = ""
 		else
 			add(o, d[c])
 			last_byte = d[c]
@@ -315,7 +315,7 @@ function decompress(d)
 	return huff_dec(rle_dec(d))
 end
 
-mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, "--and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
+mmg_song = "i am the very model of a modern major-general i've information vegetable, animal, and mineral i know the kings of england, and i quote the fights historical from marathon to waterloo, in order categorical i'm very well acquainted, too, with matters mathematical i understand equations, both the simple and quadratical about binomial theorem i'm teeming with a lot o' news with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotenuse with many cheerful facts about the square of the hypotepotenuse i'm very good at integral and differential calculus i know the scientific names of beings animalculous in short, in matters vegetable, animal, and mineral i am the very model of a modern major-general in short, in matters vegetable, animal, and mineral he is the very model of a modern major-general"
 --mmg_song = "abc cde ccc"
 compressed = compress(str_to_bytes(mmg_song))
 decompressed = bytes_to_str(decompress(compressed))
@@ -343,6 +343,7 @@ end
 function _draw()
 	draw_tree(decompressed, cx, cy)
 end
+--for i = 5,#mmg_song do s=sub(mmg_song,1,i); if (bytes_to_str(decompress(compress(str_to_bytes(s))))==s) then print(i .. " matches") else print (i .. " does not match") end end
 __gfx__
 00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000111111114444440444444044000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
