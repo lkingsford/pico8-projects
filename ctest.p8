@@ -56,12 +56,7 @@ stream = {
 		return v
 	end,
 	short_read = function(self)
-	 	--return self:byte_read() + shl(self:byte_read(), 8)
-		b1 = self:byte_read()
-		b2 = self:byte_read()
-		self:write_cursor()
-		print("read short "..b1..','..b2)
-		return b1 + shl(b2,8)
+		return self:byte_read() + shl(self:byte_read(),8)
 	end,
 	bit_push = function(self, v)
 		if self.cursor[1] > #self.data then add(self.data, 0) end
@@ -76,8 +71,6 @@ stream = {
 	short_push = function(self, v)
 		self:byte_push(band(v, 255))
 		self:byte_push(shr(band(v, 65280), 8))
-		self:write_cursor()
-		print('short write '..band(v, 255)..','..shr(band(v,65280), 8))
 	end,
 	byte_insert = function(self, v, l)
 	 	local new_data = {}
@@ -109,9 +102,6 @@ stream = {
 	next_actual_byte = function(self)
 		self.cursor[1] += 1
 		self.cursor[2] = 1
-	end,
-	write_cursor = function(self)
-		print('c:'..self.cursor[1]..','..self.cursor[2])
 	end,
 }
 
@@ -263,12 +253,10 @@ function draw_tree(node, x, y, layer)
 end
 
 mmg_song = "I am the very model of a modern Major-General I've information vegetable, animal, and mineral I know the kings of England, and I quote the fights Historical From Marathon to Waterloo, in order categorical I'm very well acquainted, too, with matters Mathematical I understand equations, both the simple and quadratical About binomial theorem I'm teeming with a lot o' news With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotenuse With many cheerful facts about the square of the Hypotepotenuse I'm very good at integral and differential calculus I know the scientific names of beings animalculous In short, in matters vegetable, animal, and mineral I am the very model of a modern Major-General In short, in matters vegetable, animal, and mineral He is the very model of a modern Major-General"
-print("uncompressed length: ".. #mmg_song)
---mmg_song = chr(1) .. chr(1) .. chr(2) .. chr(3) .. chr(4) .. chr(5) .. chr(5)
 compressed = huff_enc(str_to_bytes(mmg_song))
-
-print("compressed length:" .. #compressed)
 decompressed = bytes_to_str(huff_dec(compressed))
+
+print("mmg:" .. #decompressed .. "->" .. #compressed)
 --stop()
 if mmg_song == decompressed then print("decompressed matches") else print("decompressed does not match") end
 
