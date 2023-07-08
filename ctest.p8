@@ -55,6 +55,14 @@ stream = {
 		end
 		return v
 	end,
+	short_read = function(self)
+	 	--return self:byte_read() + shl(self:byte_read(), 8)
+		b1 = self:byte_read()
+		b2 = self:byte_read()
+		self:write_cursor()
+		print("read short "..b1..','..b2)
+		return b1 + shl(b2,8)
+	end,
 	bit_push = function(self, v)
 		if self.cursor[1] > #self.data then add(self.data, 0) end
 		if v > 0 then self.data[self.cursor[1]] += shl(1, self.cursor[2] - 1) end
@@ -64,6 +72,12 @@ stream = {
 		for i = 0,7 do
 			self:bit_push(shr(band(v, shl(1, i))), i)
 		end
+	end,
+	short_push = function(self, v)
+		self:byte_push(band(v, 255))
+		self:byte_push(shr(band(v, 65280), 8))
+		self:write_cursor()
+		print('short write '..band(v, 255)..','..shr(band(v,65280), 8))
 	end,
 	byte_insert = function(self, v, l)
 	 	local new_data = {}
@@ -91,7 +105,14 @@ stream = {
 	-- pushes to a new byte at end
 		self.cursor[1] = #self.data + 1
 		self.cursor[2] = 1
-	end
+	end,
+	next_actual_byte = function(self)
+		self.cursor[1] += 1
+		self.cursor[2] = 1
+	end,
+	write_cursor = function(self)
+		print('c:'..self.cursor[1]..','..self.cursor[2])
+	end,
 }
 
 function merge(t1, t2)
@@ -167,9 +188,8 @@ function huff_enc(data)
 	huff_enc_node(nodes, output)
 	output:byte_insert(#output.data,1)
 	output:push_to_end()
-	
-	output:byte_push(band(#data, 255))
-	output:byte_push(shr(band(#data, 32512), 8))
+	output:short_push(#data)
+
 	for v in all(data) do
 		huff_enc_char(output, v, nodes)
 	end
@@ -199,7 +219,24 @@ function huff_dec(data)
 	local leafs = {}
 	-- Decode huffman tree
 	root=huff_dec_node(input, byte_count + 1)
-	return root
+	-- File size
+	input:next_actual_byte()
+	output_size=input:short_read()
+	print("listed output_size is ".. output_size)
+	output = {}
+	node = root
+	while #output < output_size do
+		if input:bit_read() == 0 then
+			node = node.l
+		else
+			node = node.r
+		end
+		if not(node.l) then
+			add(output,node.c[1])
+			node = root
+		end
+	end
+	return output
 end
 
 function draw_tree(node, x, y, layer)
@@ -231,13 +268,9 @@ print("uncompressed length: ".. #mmg_song)
 compressed = huff_enc(str_to_bytes(mmg_song))
 
 print("compressed length:" .. #compressed)
-decompressed = huff_dec(compressed)
+decompressed = bytes_to_str(huff_dec(compressed))
 --stop()
-if compressed == decompressed then print("decompressed matches") else print("decompressed does not match") end
-
--- tree = generate_huff_tree(str_to_bytes(mmg_song))
---print(decompressed.l)
---print(decompressed.r)
+if mmg_song == decompressed then print("decompressed matches") else print("decompressed does not match") end
 
 stop()
 cx=64
