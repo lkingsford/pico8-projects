@@ -119,17 +119,46 @@ function merge(t1, t2)
 	return o
 end
 
+MAX_PATTERN = 4
+
 function generate_huff_tree(data)
 	local freq_table = {}
 	for i in all(data) do
-		if freq_table[i] == nil then
-			freq_table[i] = 1
+		if freq_table[chr(i)] == nil then
+			freq_table[chr(i)] = 1
 		else 
-			freq_table[i] += 1 
+			freq_table[chr(i)] += 1 
 		end
+	end
+	-- Not quite LZW, but also going to encode any sequences to MAX_PATTERN characters that appear more than once
+	for i = 1, #data do
+		for j = i, min(i + MAX_PATTERN, #data) do
+			local seq = {}
+			for k = i, j do add(seq,data[k]) end
+			local seq_s = ""
+			for k in all(seq) do seq_s ..= chr(k) end
+			if #seq > 1 and freq_table[seq_s] == nil then
+				local count = 1
+				local match_i = 1
+				for k = i+#seq, #data do
+					if seq[match_i] == data[k] then match_i += 1 else match_i = 1 end
+					if match_i > #seq then
+						match_i = 0
+						count += 1
+					end
+				end
+				if count > 1 then freq_table[seq_s] = count end
+			end
+		end
+		print(i)
 	end
 	sorted_table = kv_to_ikv(freq_table)
 	sort(sorted_table, function(a,b) return a[2] > b[2] end)
+	local out = ""
+	for k,v in pairs(sorted_table) do
+		out ..= k .. ' :: ' .. v[1] .. ' ' .. v[2] .. '\n'
+	end
+	printh(out, '@clip')
 	nodes = {}
 	for i in all(sorted_table) do add(nodes, {c={i[1]},p=i[2]}) end
 	while #nodes > 1 do
@@ -142,10 +171,11 @@ function generate_huff_tree(data)
 	return nodes[1], #sorted_table
 end
 
+
 function huff_enc_node(node, stream)
 	if node.l == nil then
 		stream:bit_push(1)
-		stream:byte_push(node.c[1])
+		stream:byte_push(ord(node.c[1]))
 	else
 		stream:bit_push(0)
 		huff_enc_node(node.l, stream)
@@ -188,7 +218,7 @@ function huff_enc(data)
 	output:short_push(#data)
 
 	for v in all(data) do
-		huff_enc_char(output, v, nodes)
+		huff_enc_char(output, chr(v), nodes)
 	end
 	return output.data
 end
