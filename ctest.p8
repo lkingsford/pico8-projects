@@ -150,7 +150,6 @@ function generate_huff_tree(data)
 				if count > 1 then freq_table[seq_s] = count end
 			end
 		end
-		print(i)
 	end
 	sorted_table = kv_to_ikv(freq_table)
 	sort(sorted_table, function(a,b) return a[2] > b[2] end)
@@ -184,28 +183,29 @@ function huff_enc_node(node, stream)
 end
 
 function contains(table, v)
-	for c in all(table.c) do
-		if c == v then return true end
+	print(#table)
+	for c in all(table) do
+		if c==v then return true end
 	end	
 	return false
 end
 
 
-function huff_enc_char(output, v, tree)
+function huff_enc_chunk(output, v, tree)
 	if #tree.c <= 1 then return end
-	if contains(tree.l, v) then
+	if contains(tree.l.c, v) then
 		output:bit_push(0) 	
-		huff_enc_char(output, v, tree.l)
-	elseif contains(tree.r, v) then
+		huff_enc_chunk(output, v, tree.l.c)
+	elseif contains(tree.r.c, v) then
 		output:bit_push(1)
-		huff_enc_char(output, v, tree.r)
+		huff_enc_chunk(output, v, tree.r.c)
 	else
-		print("character "..v.. " not found in tree")
+		print("chunk '"..bytes_to_str(v).. "'' not found in tree")
 	end
 end
 
 function huff_enc(data)
-	local nodes, node_count = generate_huff_tree(data)
+	nodes, node_count = generate_huff_tree(data)
 
 	-- Encode huffman tree - 
 	-- Encoded as byte N, followed by a series of a bit 'b', then optionally byte 'B'. 
@@ -216,9 +216,19 @@ function huff_enc(data)
 	huff_enc_node(nodes, output)
 	output:push_to_end()
 	output:short_push(#data)
-
-	for v in all(data) do
-		huff_enc_char(output, chr(v), nodes)
+	local input = stream:c(data)
+	local cur = {}
+	for c in all(data) do
+		add(cur, c)
+		print('cur is \''..bytes_to_str(cur)..'\'')
+		stop()
+		if not contains(nodes.c, cur) then
+		  	local enc_cur = {}
+		 	for i = 1, #cur - 1 do add(enc_cur, cur[i]) end
+			print("encoding '"..bytes_to_str(enc_cur).."'")
+			huff_enc_chunk(output, enc_cur, nodes)
+			cur = {cur[#cur]}
+		end
 	end
 	return output.data
 end
