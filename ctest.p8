@@ -183,7 +183,6 @@ function huff_enc_node(node, stream)
 end
 
 function contains(table, v)
-	print(#table)
 	for c in all(table) do
 		if c==v then return true end
 	end	
@@ -192,13 +191,13 @@ end
 
 
 function huff_enc_chunk(output, v, tree)
-	if #tree.c <= 1 then return end
+	if #tree.c == nil or #tree.c <= 1 then return end
 	if contains(tree.l.c, v) then
 		output:bit_push(0) 	
-		huff_enc_chunk(output, v, tree.l.c)
+		huff_enc_chunk(output, v, tree.l)
 	elseif contains(tree.r.c, v) then
 		output:bit_push(1)
-		huff_enc_chunk(output, v, tree.r.c)
+		huff_enc_chunk(output, v, tree.r)
 	else
 		print("chunk '"..bytes_to_str(v).. "'' not found in tree")
 	end
@@ -220,13 +219,10 @@ function huff_enc(data)
 	local cur = {}
 	for c in all(data) do
 		add(cur, c)
-		print('cur is \''..bytes_to_str(cur)..'\'')
-		stop()
-		if not contains(nodes.c, cur) then
+		if not contains(nodes.c, bytes_to_str(cur)) then
 		  	local enc_cur = {}
 		 	for i = 1, #cur - 1 do add(enc_cur, cur[i]) end
-			print("encoding '"..bytes_to_str(enc_cur).."'")
-			huff_enc_chunk(output, enc_cur, nodes)
+			huff_enc_chunk(output, bytes_to_str(enc_cur), nodes)
 			cur = {cur[#cur]}
 		end
 	end
