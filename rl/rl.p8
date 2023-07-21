@@ -51,7 +51,7 @@ end
 
 function zombie()
 	return {
-		x=5,y=5,ai=zombie_ai,spd=20,t=10,spr=49
+		x=5,y=5,ai=zombie_ai,spd=20,t=10,spr=49,hp=2,maxhp=2
 	}
 end
 
@@ -80,19 +80,42 @@ function move(actor, dir)
 	move_abs(actor, nx, ny)
 end
 
+function first(t, fn)
+	for i in all(t) do
+		if fn(i) then return i end
+	end
+	return nil
+end
+
+function attack(a, t)
+	local atk = a.atk or DEF_ATK
+	t.hp -= atk
+	if t.hp <= 0 then
+		kill(t)
+	end
+end
+
+function kill(t)
+	del(actors, t)
+end
+
 function move_abs(actor, nx, ny)
-	if not fget(mget(nx,ny),0) then
+	local t = first(actors, function(a) return a != actor and a.x == nx and a.y == ny end)
+	if t then
+		attack(actor, t)
+	elseif not fget(mget(nx,ny),0) and nx >= 0 and ny >= 0 and nx < MWIDTH and ny < MHEIGHT then
 		actor.x = nx
 		actor.y = ny
 	end
 	actor.t += actor.spd or DEF_SP
 end
 
-pc = {x=8,y=8,spr=48,ai=nil,spd=10,t=0}
+pc = {x=8,y=8,spr=48,ai=nil,spd=10,t=0,hp=10,maxhp=10}
 actors = {pc}
 MWIDTH=32
 MHEIGHT=32
 DEF_SP=10
+DEF_ATK=1
 
 function _draw()
 	palt(0, false)
@@ -102,6 +125,11 @@ function _draw()
 	map()
 	for a in all(actors) do
 		spr(a.spr, a.x*8,a.y*8)
+		local h = a.hp/a.maxhp
+		if h < 1 then
+			line(a.x*8, a.y*8-1, a.x*8+8, a.y*8-1, 5)
+			line(a.x*8, a.y*8-1, a.x*8+(h*8\1), a.y*8-1, ({8,8,10,6,7})[h*5\1])
+		end
 	end
 	camera()
 end
