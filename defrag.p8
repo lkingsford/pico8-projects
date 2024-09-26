@@ -91,32 +91,14 @@ function _update(dt)
 		if (d) xy_csr[2]+=1
 		xy_csr[1]=min(max(0, xy_csr[1]), w-1)
 		xy_csr[2]=min(max(0, xy_csr[2]), h-1)
-		init_xy_csr={xy_csr[1],xy_csr[2]}
+		xy_corner_1={xy_csr[1],xy_csr[2]}
+		xy_corner_2={xy_csr[1],xy_csr[2]}
 		if (x) mode = 1
 	elseif mode==1 then
-	 if l then 
-			wh_csr[1]-=1
-			if xy_csr[1]>0 then
-				wh_csr[1]+=2
-				xy_csr[1]-=1
-			end
-		end
-		if r then
-			if xy_csr[1]<init_xy_csr[1] then
-			 wh_csr[1]-=1
-				xy_csr[1]+=1
-			else
-				wh_csr[1]+=1
-			end
-		end
-		if u then
-	 	wh_csr[2]-=1
-			if wh_csr[2]<1 and xy_csr[2]>0 then
-				wh_csr[2]+=2
-				xy_csr[2]-=1
-			end
-		end
-		if (d) wh_csr[2]+=1
+	 xy_corner_2[1]+=(r and 1 or l and -1 or 0)
+	 xy_corner_2[2]+=(d and 1 or u and -1 or 0)
+		xy_csr={min(xy_corner_1[1], xy_corner_2[1]), min(xy_corner_1[2], xy_corner_2[2])}
+		wh_csr={abs(xy_corner_1[1]-xy_corner_2[1])+1, abs(xy_corner_1[2]-xy_corner_2[2])+1}
 		wh_csr[1]=min(max(1, wh_csr[1]), w-xy_csr[1])
 		wh_csr[2]=min(max(1, wh_csr[2]), h-xy_csr[2])
 		if x then
@@ -139,7 +121,7 @@ function _update(dt)
 	 local d = wh_csr
 		if (mv_rot % 2 == 1) d = {wh_csr[2], wh_csr[1]}
 	 mv_csr[1]=min(max(0, mv_csr[1]), w-d[1])
-	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[1])
+	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[2])
 		if x then
 		 if mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2] then
 				--aborted
