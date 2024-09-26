@@ -168,9 +168,9 @@ function _update(dt)
 			sfx(2) --todo: make better sound on better move
 			for _x=0,d[1]-1 do for _y=0,d[2]-1 do
 					m=mget(_x+32,_y)
+					mset(xy_csr[1]+_x,xy_csr[2]+_y,0)
 					if m!=0 then
 						mset(mv_csr[1]+_x,mv_csr[2]+_y,mget(_x+32,_y))
-						mset(xy_csr[1]+_x,xy_csr[2]+_y,0)
 					end
 				end
 			end
