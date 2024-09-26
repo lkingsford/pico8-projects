@@ -119,8 +119,6 @@ function _update(dt)
 	 if (d) mv_csr[2]+=1
 	 local d = wh_csr
 		if (mv_rot % 2 == 1) d = {wh_csr[2], wh_csr[1]}
-	 mv_csr[1]=min(max(0, mv_csr[1]), w-d[1])
-	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[2])
 		if o then
 			--rotate
 			if d[1]>h or d[2]>w then
@@ -180,6 +178,10 @@ function _update(dt)
 			xy_csr=mv_csr
 			mode = 0
 		end
+		d = wh_csr
+		if (mv_rot % 2 == 1) d = {wh_csr[2], wh_csr[1]}
+	 mv_csr[1]=min(max(0, mv_csr[1]), w-d[1])
+	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[2])
 	end
 	frag = calc_frag()
 end
