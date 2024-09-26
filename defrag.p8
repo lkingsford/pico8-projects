@@ -32,7 +32,6 @@ function _init_game()
 	frag=calc_frag()
 end
 
-
 function calc_frag()
 	--get files with any segments
 	files=0
@@ -122,6 +121,32 @@ function _update(dt)
 		if (mv_rot % 2 == 1) d = {wh_csr[2], wh_csr[1]}
 	 mv_csr[1]=min(max(0, mv_csr[1]), w-d[1])
 	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[2])
+		if o then
+			--rotate
+			if d[1]>h or d[2]>w then
+				sfx(0)
+				fail_flash=1
+				fail_flash_rect={mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8,mv_csr[2]*8+d[2]*8}
+				return
+			end
+			mv_rot += 1
+			mv_rot %= 4
+		 sfx(3)
+			for _y=0,h do
+			 --stop abusing map memory, maybe one day you won't have any left
+				memset(0x2040+y*128,0,32)
+			end
+			cls()
+			for _x=0,d[1]-1 do for _y=0,d[2]-1 do
+			 mset(_y+64,_x,mget(d[1]-_x+31,_y))
+			end end
+			for _y=0,h do
+				memset(0x2020+y*128,0,32)
+			end
+			for _y=0,h do
+				memcpy(0x2020+_y*128,0x2040+_y*128,d[2])
+			end
+		end
 		if x then
 		 if mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2] then
 				--aborted
@@ -161,7 +186,6 @@ end
 
 draw_frame=0
 
-
 function _draw()
  draw_frame+=1
 	cls()
@@ -192,8 +216,7 @@ function _draw()
 	if mode==2 then
 	 local d = wh_csr
 		if (mv_rot % 2 == 1) d = {wh_csr[2], wh_csr[1]}
-		camera(192+(w*4)-mv_csr[1]*8,-10-mv_csr[2]*8)
-		map(0,0)
+		map(32,0,mv_csr[1]*8,mv_csr[2]*8,d[1],d[2])
 		camera(-64+(w*4),-10)
 		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8,mv_csr[2]*8+d[2]*8,0)
 		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1,7)
@@ -247,3 +270,4 @@ __sfx__
 000300000000005460084500845000450004300042000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0006000000000180201f0301e75000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000300000000000000137501375018750187401875018740187500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0005000000000000001c7402171000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
