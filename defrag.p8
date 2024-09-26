@@ -69,6 +69,7 @@ function calc_frag()
 end
 
 frag = 100
+init_xr_csr={0,0}
 xy_csr={0,0}
 --0: selecting x/y
 --1: selecting w/h
@@ -77,7 +78,8 @@ mode=0
 wh_csr={1,1}
 mv_csr={0,0}
 mv_rot=0
-fail_flash = 0
+fail_flash=0
+pass_flash=0
 
 function _update(dt)
  l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
@@ -89,11 +91,31 @@ function _update(dt)
 		if (d) xy_csr[2]+=1
 		xy_csr[1]=min(max(0, xy_csr[1]), w-1)
 		xy_csr[2]=min(max(0, xy_csr[2]), h-1)
+		init_xy_csr={xy_csr[1],xy_csr[2]}
 		if (x) mode = 1
 	elseif mode==1 then
-	 if (l) wh_csr[1]-=1
-		if (r) wh_csr[1]+=1
-		if (u) wh_csr[2]-=1
+	 if l then 
+			wh_csr[1]-=1
+			if xy_csr[1]>0 then
+				wh_csr[1]+=2
+				xy_csr[1]-=1
+			end
+		end
+		if r then
+			if xy_csr[1]<init_xy_csr[1] then
+			 wh_csr[1]-=1
+				xy_csr[1]+=1
+			else
+				wh_csr[1]+=1
+			end
+		end
+		if u then
+	 	wh_csr[2]-=1
+			if wh_csr[2]<1 and xy_csr[2]>0 then
+				wh_csr[2]+=2
+				xy_csr[2]-=1
+			end
+		end
 		if (d) wh_csr[2]+=1
 		wh_csr[1]=min(max(1, wh_csr[1]), w-xy_csr[1])
 		wh_csr[2]=min(max(1, wh_csr[2]), h-xy_csr[2])
@@ -122,6 +144,7 @@ function _update(dt)
 		 if mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2] then
 				--aborted
 				sfx(1)
+				wh_csr={1,1}
 				mode=0
 				return
 			end
@@ -131,6 +154,7 @@ function _update(dt)
 			end end
 			if not fits then
 				fail_flash=1
+				fail_flash_rect={mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1}
 				sfx(0)
 				return
 			end
@@ -143,7 +167,10 @@ function _update(dt)
 					end
 				end
 			end
-			printh("---")
+			pass_flash=1
+			pass_flash_rect={mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1}
+			wh_csr={1,1}
+			xy_csr=mv_csr
 			mode = 0
 		end
 	end
@@ -188,9 +215,26 @@ function _draw()
 		camera(-64+(w*4),-10)
 		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8,mv_csr[2]*8+d[2]*8,0)
 		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1,7)
-		for x=0,d[1]-1 do for y=0,d[2]-1 do
-			if (mget(x+mv_csr[1],y+mv_csr[2])!=0 and mget(x+32,y)!=0) spr(21,(x+mv_csr[1])*8,(y+mv_csr[2])*8)
-		end end	
+		if not(mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2])then
+			for x=0,d[1]-1 do for y=0,d[2]-1 do
+				if (mget(x+mv_csr[1],y+mv_csr[2])!=0 and mget(x+32,y)!=0) spr(21,(x+mv_csr[1])*8,(y+mv_csr[2])*8)
+			end end	
+		end
+	end
+	--animations
+	if fail_flash > 0 then
+		fail_flash -= 0.125
+		if (fail_flash >= .325) c = 8
+		if (fail_flash >= .5) c = 9
+		if (fail_flash >= .75) c = 10
+		rect(fail_flash_rect[1],fail_flash_rect[2],fail_flash_rect[3],fail_flash_rect[4],c)
+	end
+	if pass_flash >0 then
+		pass_flash -= 0.0625
+		if (pass_flash >= .125) c = 1
+		if (pass_flash >= .5) c = 3
+		if (pass_flash >= .75) c = 11
+		rect(pass_flash_rect[1],pass_flash_rect[2],pass_flash_rect[3],pass_flash_rect[4],c)
 	end
 	--score
 	camera()
