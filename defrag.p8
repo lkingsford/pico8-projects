@@ -132,12 +132,30 @@ function _update(dt)
 		xy_corner_2={xy_csr[1],xy_csr[2]}
 		if (x) mode = 1
 	elseif mode==1 then
-	 xy_corner_2[1]+=(r and 1 or l and -1 or 0)
-	 xy_corner_2[2]+=(d and 1 or u and -1 or 0)
-		xy_csr={min(xy_corner_1[1], xy_corner_2[1]), min(xy_corner_1[2], xy_corner_2[2])}
-		wh_csr={abs(xy_corner_1[1]-xy_corner_2[1])+1, abs(xy_corner_1[2]-xy_corner_2[2])+1}
-		wh_csr[1]=min(max(1, wh_csr[1]), w-xy_csr[1])
-		wh_csr[2]=min(max(1, wh_csr[2]), h-xy_csr[2])
+	 local new_x=xy_corner_2[1]
+		local new_y=xy_corner_2[2]
+	 new_x+=(r and 1 or l and -1 or 0)
+	 new_y+=(d and 1 or u and -1 or 0)
+		new_xy_csr={min(xy_corner_1[1], new_x), min(xy_corner_1[2], new_y)}
+		new_wh_csr={abs(xy_corner_1[1]-new_x)+1, abs(xy_corner_1[2]-new_y)+1}
+		for ix=new_xy_csr[1],new_xy_csr[1]+new_wh_csr[1]-1 do
+			for iy=new_xy_csr[2],new_xy_csr[2]+new_wh_csr[2]-1 do
+				if mget(ix,iy) == 1 then
+					sfx(4)
+					return
+				end
+			end
+		end
+		if new_xy_csr[1]<0 or
+					new_xy_csr[1]+new_wh_csr[1]>w or
+					new_xy_csr[2]<0 or
+					new_xy_csr[2]+new_wh_csr[2]>h then
+			sfx(4)
+			return
+		end
+		xy_csr=new_xy_csr
+		wh_csr=new_wh_csr
+		xy_corner_2={new_x, new_y}
 		if x then
 		 mode = 2
 			mv_csr={xy_csr[1],xy_csr[2]}
@@ -297,7 +315,7 @@ function _draw()
 		map(32,0,mv_csr[1]*8,mv_csr[2]*8,d[1],d[2])
 		camera(-64+(w*4),-10)
 		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8,mv_csr[2]*8+d[2]*8,0)
-		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1,7)
+		rect(mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1,8)
 		if not(mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2])then
 			for x=0,d[1]-1 do for y=0,d[2]-1 do
 				if (mget(x+mv_csr[1],y+mv_csr[2])!=0 and mget(x+32,y)!=0) spr(21,(x+mv_csr[1])*8,(y+mv_csr[2])*8)
