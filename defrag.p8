@@ -112,6 +112,7 @@ fail_flash=0
 pass_flash=0
 
 function _update(dt)
+	camera(-64+(w*4),-10)
  l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
  if not(l or r or u or d or x or o) then return end
 	if mode==0 then
@@ -201,14 +202,17 @@ function _update(dt)
 				return
 			end
 			sfx(2) --todo: make better sound on better move
+			for _x=0,wh_csr[1]-1 do for _y=0,wh_csr[2]-1 do
+				mset(xy_csr[1]+_x,xy_csr[2]+_y,0)
+			end end
 			for _x=0,d[1]-1 do for _y=0,d[2]-1 do
-					m=mget(_x+32,_y)
-					mset(xy_csr[1]+_x,xy_csr[2]+_y,0)
-					if m!=0 then
-						mset(mv_csr[1]+_x,mv_csr[2]+_y,mget(_x+32,_y))
-					end
+				m=mget(_x+32,_y)
+				rectfill((xy_csr[1]+_x)*8,(xy_csr[2]+_y)*8,(xy_csr[1]+_x)*8+7,(xy_csr[2]+_y)*8+7,7)
+				flip()
+				if m!=0 then
+					mset(mv_csr[1]+_x,mv_csr[2]+_y,mget(_x+32,_y))
 				end
-			end
+			end end
 			pass_flash=1
 			pass_flash_rect={mv_csr[1]*8,mv_csr[2]*8,mv_csr[1]*8+d[1]*8-1,mv_csr[2]*8+d[2]*8-1}
 			wh_csr={1,1}
