@@ -28,15 +28,46 @@ function _init_game()
 	  mset(x,y,0)
 	  placed-=1
 	 end
-	end 
+	end
+	--add unmoveables
+	for obs_i=0,1 do
+		placed=false
+		while not placed do
+			x0=flr(rnd(w))-4
+			w0=flr(rnd(6))+2
+			y0=flr(rnd(h))
+			x=x0
+			y=y0
+			problem=false
+			for i=0,w0 do
+				x+=1
+				if (x>w) x=0;y+=1
+				for x2=x-3,x+3 do for y2=y-3,y+3 do
+					if (mget(x2,y2)==1) problem=true
+				end end
+	   if (problem) break
+			end
+			if not problem then
+				for i=0,w0 do
+					x+=1
+					if (x>w) x=0;y+=1
+					mset(x,y,1)
+					placed=true
+				end
+			end
+		end
+	end
+	--init score
 	frag=calc_frag()
 end
+
 
 function calc_frag()
 	--get files with any segments
 	files=0
 	for i=0,15 do
-		for p=0,w*h do if mget(p%w,p\w)==i then files += 1; break end end
+	 --exclude unmoveable
+		if i!= 1 then for p=0,w*h do if mget(p%w,p\w)==i then files += 1; break end end end
 	end
 	u={}
 	seg_count=0
@@ -84,12 +115,18 @@ function _update(dt)
  l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
  if not(l or r or u or d or x or o) then return end
 	if mode==0 then
-		if (l) xy_csr[1]-=1
-		if (r) xy_csr[1]+=1
-		if (u) xy_csr[2]-=1
-		if (d) xy_csr[2]+=1
-		xy_csr[1]=min(max(0, xy_csr[1]), w-1)
-		xy_csr[2]=min(max(0, xy_csr[2]), h-1)
+	 local new_x=xy_csr[1]
+		local new_y=xy_csr[2]
+		if (l) new_x-=1
+		if (r) new_x+=1
+		if (u) new_y-=1
+		if (d) new_y+=1
+		if mget(new_x,new_y) == 1 or new_x<0 or new_x>=w or new_y<0 or new_y>=h then
+		 sfx(4)
+			return
+		end
+		xy_csr[1]=new_x
+		xy_csr[2]=new_y
 		xy_corner_1={xy_csr[1],xy_csr[2]}
 		xy_corner_2={xy_csr[1],xy_csr[2]}
 		if (x) mode = 1
@@ -273,3 +310,4 @@ __sfx__
 0006000000000180201f0301e75000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000300000000000000137501375018750187401875018740187500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0005000000000000001c7402171000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000700000032004300003000430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
