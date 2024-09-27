@@ -9,6 +9,10 @@ h=8
 --used just for tline on the selector
 mset(0,32,16)
 
+--0 playing, 1 won
+state = 0
+titlebar = "defrag"
+
 function _init_game()
  aloc=w*h-30
  placed=0
@@ -63,6 +67,7 @@ function _init_game()
 	frag=calc_frag()
 	sfx(5)
 	sfx(6)
+	state=0
 end
 
 
@@ -118,7 +123,18 @@ mv_rot=0
 fail_flash=0
 pass_flash=0
 
-function _update(dt)
+function _update()
+	if state == 0 then
+	 _update_play()
+	elseif state == 1 then
+	 if btnp(❎) then
+			_init_game()
+			return
+		end
+	end
+end
+
+function _update_play(dt)
 	camera(-64+(w*4),-10)
  l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
  if not(l or r or u or d or x or o) then return end
@@ -251,6 +267,10 @@ function _update(dt)
 	 mv_csr[2]=min(max(0, mv_csr[2]), h-d[2])
 	end
 	frag = calc_frag()
+	if frag==0 then
+		state=1
+		init_win_animation()
+	end
 end
 
 draw_frame=0
@@ -270,6 +290,15 @@ function pad(i,z)
 	return s
 end
 
+
+function init_win_animation()
+	win_animation = true
+	win_chunks = {}
+	for y=0,h-1 do
+		memcpy(0x2020+y*128,0x2000+y*128,w)
+	end
+end
+
 function _draw()
  draw_frame+=1
 	cls(3)
@@ -280,7 +309,7 @@ function _draw()
 	line(0,117,127,117,5)
 	rectfill(0,118,127,127,6)
 	fbtn(0,118,30,127,34,"play")
-	fbtn(32,118,70,127,35,"defrag")
+	fbtn(32,118,70,127,35,titlebar)
 	rectfill(108,118,127,127,5)
 	line(108,127,127,127,7)
 	line(108,118,108,127,0)
@@ -296,13 +325,13 @@ function _draw()
 	map(0,0,0,0,w,h)
 	rectfill(-2,h*8,w*8,h*9,6)
 	rect(-1,-1,w*8-1,h*8-1,5)
-	print("defrag",9,-7,7)
+	print(titlebar,9,-7,7)
 	spr(50, -1, -8)
 	--selection palette
 	pal(({{[0]=0,0,0,5,7,1,12,7,0},{[0]=0,7,0,0,5,1,12,7,0},{[0]=0,5,7,0,0,1,12,7,0},{[0]=0,0,5,7,0,1,12,7,0}})[draw_frame\4%4+1])
-	if mode==0 then
+	if state==0 and mode==0 then
 		spr(16, xy_csr[1]*8, xy_csr[2]*8)
-	elseif mode==1 then
+	elseif state==0 and mode==1 then
 		for x=xy_csr[1],xy_csr[1]+wh_csr[1]-1 do for y=xy_csr[2],xy_csr[2]+wh_csr[2]-1 do spr(17+draw_frame\4%4,x*8,y*8) end end
 	 for x=xy_csr[1],xy_csr[1]+wh_csr[1]-1 do
 			tline(x*8,xy_csr[2]*8,(x+1)*8,xy_csr[2]*8,0,32)
@@ -312,7 +341,7 @@ function _draw()
 		 tline((xy_csr[1])*8,y*8,(xy_csr[1])*8,(y+1)*8,0,32.875)
 		 tline((xy_csr[1]+wh_csr[1])*8-1,y*8,(xy_csr[1]+wh_csr[1])*8-1,(y+1)*8,0,32)
 		end
-	elseif mode==2 then
+	elseif state==0 and mode==2 then
 		for x=xy_csr[1],xy_csr[1]+wh_csr[1]-1 do for y=xy_csr[2],xy_csr[2]+wh_csr[2]-1 do spr(21,x*8,y*8) end end
 		rect(xy_csr[1]*8, xy_csr[2]*8, xy_csr[1]*8+wh_csr[1]*8-1, xy_csr[2]*8+wh_csr[2]*8-1, 8)
 	end
@@ -347,8 +376,43 @@ function _draw()
 		if (pass_flash >= .75) c = 11
 		rect(pass_flash_rect[1],pass_flash_rect[2],pass_flash_rect[3],pass_flash_rect[4],c)
 	end
+
 	--score
 	print(tostr(frag).."% fragmented",0,h*8+1,0)
+
+	if win_animation then
+		keep_going=false
+		for x=0,w-1 do for y=0,h-1 do
+			keep_going=keep_going or (mget(x,y)!=0)
+		end end
+		if keep_going and rnd() < .2 then
+			good=false
+			while not good do
+				x0=flr(rnd(w))
+				y0=flr(rnd(h))
+				w0=flr(rnd(5))+1
+				h0=flr(rnd(5))+1
+				for x=0,w0-1 do for y=0,h0-1 do
+					if (mget(x+x0,y+y0)!=0) good=true
+				end end
+			end
+			if good then
+				for x=0,w0-1 do for y=0,h0-1 do
+					mset(x+x0,y+y0,0)
+				end end
+				if (w0+x0 > w) w0=w-x0
+				if (h0+y0 > h) h0=h-y0
+				add(win_chunks,{x0,y0,w0,h0,x0*8,y0*8,rnd(5)-2.5,rnd(3)*-1-3})
+			end
+		end
+		for c in all(win_chunks) do
+			map(32+c[1],c[2],c[5]+1,c[6]+1,c[3],c[4])
+			c[5]+=c[7]
+			c[8]+=0.2
+			if (c[8] > 4 and rnd() < .1)  c[8]=rnd(2)*-1-2
+			c[6]+=c[8]
+		end
+	end
 end
 
 _init_game()
@@ -356,8 +420,8 @@ __gfx__
 00000000888888825555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
 0000000088888828566666655dd1111556666665599999955aaaaaa55bb33bb55dd66dd55cccccc5599999955aaaaaa552222445599ff9955111111552222225
 0000000088888288566666655dd1111556666665599999955adddda55bb33bb55dd66dd55ccccce55999999559aaaaa55222244559ffff955111111552222225
-0000000088882888566663355111111556666665599dd9955adaada55bb33bb55dddddd55ccccee559999995599aaaa5522222255ffffff55dddddd55aa22225
-0000000088828888566663355111111556666665599dd9955adaada55bb33bb55dddddd55ccceee55dddddd55999aaa5522222255ffffff55dddddd55aa22225
+0000000088882888566663355111111556666665599dd9955adaada55bb33bb55dddddd55ccccee559999995599aaaa5522222255ffffff55cccccc55aa22225
+0000000088828888566663355111111556666665599dd9955adaada55bb33bb55dddddd55ccceee55dddddd55999aaa5522222255ffffff55cccccc55aa22225
 00000000882888885663366551111dd554466665599999955adddda55bb33bb55dd66dd55cceeee55dddddd559999aa55442222559ffff955111111552222225
 00000000828888885663366551111dd554466665599999955aaaaaa55bb33bb55dd66dd55ceeeee55dddddd5599999a554422225599ff9955111111552222225
 00000000288888885555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
