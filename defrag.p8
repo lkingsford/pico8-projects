@@ -9,23 +9,67 @@ h=8
 --used just for tline on the selector
 mset(0,32,16)
 
---0 playing, 1 won
+--0 playing, 1 won, 2 new game window
 state = 0
 titlebar = "defrag"
+moves=0
+seed=""
 
-function _init_game(seed1,seed2)
+function setmp(val,p)
+	p%=w*h
+	mset(p%w,p\w,val)
+end
+
+function getmp(p)
+	p%=w*h
+	return mget(p%w,p\w)
+end
+
+function hfrag()
+	p0=flr(rnd(w*h))
+	size=flr(rnd(20))
+	for _=0,flr(rnd(10))+1 do
+		last=getmp(p0)
+		for i=0,size do
+			setmp(getmp(p0+i+1),p0+i)	
+		end
+		setmp(last,p0+size)
+	end
+end
+
+function swizzle()
+	for i=0,5 do
+		p0=flr(rnd(w*h))
+		l=getmp(p0+1)	
+		setmp(getmp(p0),p0+1)
+		setmp(l,p0)
+	end
+end
+
+function scatter()
+	for i=0,5 do
+		p0=flr(rnd(w*h))
+		p1=flr(rnd(w*h))
+		l=getmp(p0)
+		setmp(getmp(p1),p0)
+		setmp(l,p1)
+	end
+end
+
+
+function _init_game(difficulty,seed1,seed2)
 	--messing with seed so seedable games possible
- if seed1 and seed2 then 
+ if seed1 or seed2 then
 		srand()
 		poke4(0x5f44,seed1)
 		poke4(0x5f48,seed2)
-	else
-	 srand()
 	end
+	titlebar=difficulty_options[difficulty+1]
 	seed=sub(tostr($0x5f44,0x3),3)..sub(tostr($0x5f48,0x3), 3)
  aloc=w*h-30
  placed=0
 	moves=0
+	for x=0,w-1 do for y=0,h-1 do mset(x,y,0) end end
 	for i=2,15 do
 		fw=flr(rnd(6))+4
 		fh=flr(rnd(4))+1
@@ -44,6 +88,20 @@ function _init_game(seed1,seed2)
 	  mset(x,y,0)
 	  placed-=1
 	 end
+	end
+	--add difficulty
+	f=calc_frag()
+	while f<min_difficulty_frag[difficulty+1] do
+		rectfill(0,0,w*8,h*8,7)
+	 map(0,0,0,0,w,h)
+		rectfill(0,h*8,w*8,h*10,6)
+		print(f.."% fragmented", 4, h*8+4, 0)
+		flip()
+		m=flr(rnd(3))
+		--if (m==0) hfrag()
+		if (m==1) swizzle()
+		if (m==2) scatter()
+		f=calc_frag()
 	end
 	--add unmoveables
 	for obs_i=0,1 do
@@ -75,8 +133,6 @@ function _init_game(seed1,seed2)
 	end
 	--init score
 	frag=calc_frag()
-	sfx(5)
-	sfx(6)
 	state=0
 end
 
@@ -138,11 +194,34 @@ function _update()
 	 _update_play()
 	elseif state == 1 then
 	 if btnp(❎) then
-			_init_game()
-			return
+			win_animation=false
+			reset()
+			state=2
 		end
+	elseif state == 2 then
+		_update_ngw()
 	end
 end
+
+menu_item=0
+difficulty_options={"zen","gnarly","gnarlier","frag"}
+min_difficulty_frag={50,70,80,85}
+
+function _update_ngw()
+	if (btnp(⬆️)) menu_item-=1;
+	if (btnp(⬇️)) menu_item+=1;
+	menu_item%=#difficulty_options
+	
+	if (btnp(❎)) then
+		state=0
+		_draw()
+		flip()
+		_init_game(menu_item)
+		sfx(5)
+		sfx(6)
+	end
+end
+
 
 function _update_play(dt)
 	camera(-64+(w*4),-10)
@@ -174,7 +253,7 @@ function _update_play(dt)
 		new_wh_csr={abs(xy_corner_1[1]-new_x)+1, abs(xy_corner_1[2]-new_y)+1}
 		for ix=new_xy_csr[1],new_xy_csr[1]+new_wh_csr[1]-1 do
 			for iy=new_xy_csr[2],new_xy_csr[2]+new_wh_csr[2]-1 do
-				if mget(ix,iy) == 1 then
+				if mget(ix,iy) == 1 then				
 					sfx(4)
 					return
 				end
@@ -286,7 +365,10 @@ end
 
 draw_frame=0
 
-function fbtn(x0,y0,x1,y1,s,t)
+function fbtn(x0,y0,x1,y1,s,t,active)
+	bc=6
+	if (active) bc=7
+	rectfill(x0+1,y0+1,x1-1,y1-1,bc)
 	line(x0+1,y0,x1-1,y0,7)
 	line(x0,y0+1,x0,y1-1,7)
 	line(x0+1,y1,x1-1,y1,5)
@@ -309,6 +391,18 @@ function init_win_animation()
 	end
 end
 
+function fwindow(x0,y0,x1,y1,title,active)
+	rect(x0+2,y0+2,x1+1,y1+1,5)
+	rectfill(x0,y0,x1,y1,6)
+	line(x0,y0,x1,y0,7)
+	line(x0,y0,x0,y1,7)
+	tbc=6
+	if (active) tbc=1
+	rectfill(x0+1,y0+1,x1-1,y0+8,tbc)
+	print(title,x0+11,y0+2,7)
+	spr(50,x0+1,y0+1)
+end
+
 function _draw()
  draw_frame+=1
 	cls(3)
@@ -319,7 +413,7 @@ function _draw()
 	line(0,117,127,117,5)
 	rectfill(0,118,127,127,6)
 	fbtn(0,118,30,127,34,"play")
-	fbtn(32,118,70,127,35,titlebar)
+	fbtn(32,118,70,127,35,"defrag")
 	rectfill(108,118,127,127,5)
 	line(108,127,127,127,7)
 	line(108,118,108,127,0)
@@ -328,15 +422,11 @@ function _draw()
 	print(pad(stat(93),2)..":"..pad(stat(94),2), 109,120,0)
 	--unnecessary window aesthetics
 	camera(-64+(w*4),-10)
-	rect(-1,-9,w*8+1,h*10+1,5)
-	rectfill(-2,-9,w*8,h*10,7)
-	rectfill(-2,-9,w*8,-1,1)
-	rect(-2,-9,w*8,h*9,6)
+	fwindow(-2,-9,w*8,h*10,titlebar,state==0 or state==1)
+	rectfill(0,0,w*8-1,h*8-1,7)
 	map(0,0,0,0,w,h)
-	rectfill(-2,h*8,w*8,h*10,6)
-	rect(-1,-1,w*8-1,h*10-1,5)
-	print(titlebar,9,-7,7)
-	spr(50, -1, -8)
+	rectfill(0,h*8,w*8,h*10,6)
+	rect(-1,-1,w*8-1,h*8-1,5)
 	print(seed, 0, h*9+1, 5)
 	--selection palette
 	pal(({{[0]=0,0,0,5,7,1,12,7,0},{[0]=0,7,0,0,5,1,12,7,0},{[0]=0,5,7,0,0,1,12,7,0},{[0]=0,0,5,7,0,1,12,7,0}})[draw_frame\4%4+1])
@@ -425,9 +515,19 @@ function _draw()
 			c[6]+=c[8]
 		end
 	end
+	
+	if state==2 then
+		camera(-30,-30)
+		fwindow(0,0,50,50,"new puzzle",true)
+		i=0
+		for option in all(difficulty_options) do
+			fbtn(4,10+i*10,48,18+i*10,0,option,menu_item==i)
+			i+=1
+		end
+	end
 end
 
-_init_game()
+state=2
 __gfx__
 00000000888888825555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555
 0000000088888828566666655dd1111556666665599999955aaaaaa55bb33bb55dd66dd55cccccc5599999955aaaaaa552222445599ff9955111111552222225
