@@ -7,6 +7,7 @@ w=12
 h=8
 ver="V0.3"
 cartdata("defrag03")
+main_window={w=w*8,h=h*8,x=64-(w*4),y=10}
 
 --used just for tline on the selector
 mset(0,32,16)
@@ -17,7 +18,13 @@ titlebar = "defrag"
 moves=0
 seed=""
 
-poke(0x5f2d, 0x3) 
+poke(0x5f2d, 0x1) 
+
+function mouse_in_window(window)
+ return mouse_x>window.x and mouse_x<window.x+window.w and mouse_y>window.y and mouse_y<window.y+window.h
+end
+
+
 
 function setmp(val,p)
 	p%=w*h
@@ -220,16 +227,26 @@ function init_ngw()
 end
 
 function _update()
- mouse_x=stat(32)
+	mouse_x=stat(32)
 	mouse_y=stat(33)
 	time_since_mouse_move+=1
-	if (mouse_x!=last_mouse_x or mouse_y!=last_mouse_y) time_since_mouse_move=0;mouse_update_this_frame=true;
+	any_arrow=(btn(⬆️) or btn(⬇️) or btn(⬅️) or btn(➡️))
+	if (any_arrow) time_since_mouse_move+=1000
+	mouse_update_this_frame=false
+	if (mouse_x!=last_mouse_x or mouse_y!=last_mouse_y and not any_arrow) time_since_mouse_move=0;mouse_update_this_frame=true;
 	last_mouse_x=mouse_x
 	last_mouse_y=mouse_y
+	lb_down=stat(34)&1!=0
+	rb_down=stat(34)&2!=0
+	lb_btnp=not lb_last_down and lb_down
+	rb_btnp=not rb_last_down and rb_down
+	lb_last_down=lb_down
+	rb_last_down=rb_down
+	mouse_active=stat(34)!=0 or (time_since_mouse_move<150)
 	if state == 0 then
-	 _update_play()
+		_update_play()
 	elseif state == 1 then
-	 if btnp(❎) then
+	 if btnp(❎) or lb_btnp then
 			win_animation=false
 			reset()
 			show_seed=false
@@ -259,11 +276,10 @@ function _update_ngw()
 		for button in all(buttons) do
 			button[7]=false		
 		end
-		buttons[menu_item+1][7]=true
-		--if (btnp(➡️)) show_seed=true
 		menu_item%=#options
+		buttons[menu_item+1][7]=true
 
-		if mouse_x>ngw[1] and mouse_x<ngw[1]+ngw[3] and mouse_y>ngw[2] and mouse_y<ngw[2]+ngw[4] then
+		if mouse_active and mouse_x>ngw[1] and mouse_x<ngw[1]+ngw[3] and mouse_y>ngw[2] and mouse_y<ngw[2]+ngw[4] then
 			rel_x=mouse_x-ngw[1]
 			rel_y=mouse_y-ngw[2]
 			local i=0
@@ -275,7 +291,7 @@ function _update_ngw()
 			end
 		end
 		
-		if (btnp(❎)) then
+		if (btnp(❎) or lb_btnp) then
 			state=0
 			_draw()
 			flip()
@@ -286,18 +302,25 @@ function _update_ngw()
  end
 end
 
+function set_new_xy_from_mouse()
+	if mouse_update_this_frame and mouse_in_window(main_window) then
+		new_x=flr((mouse_x-main_window.x)/8)	
+		new_y=flr((mouse_y-main_window.y)/8)
+	end
+end
 
 function _update_play(dt)
 	camera(-64+(w*4),-10)
- l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
- if not(l or r or u or d or x or o) then return end
+	l,r,u,d,x,o=btnp(⬅️),btnp(➡️),btnp(⬆️),btnp(⬇️),btnp(❎),btnp(🅾️)
+	if not(l or r or u or d or x or o or lb_btnp or rb_btnp or mouse_update_this_frame) then return end
 	if mode==0 then
-	 local new_x=xy_csr[1]
-		local new_y=xy_csr[2]
+		new_x=xy_csr[1]
+		new_y=xy_csr[2]
 		if (l) new_x-=1
 		if (r) new_x+=1
 		if (u) new_y-=1
 		if (d) new_y+=1
+		set_new_xy_from_mouse()
 		if mget(new_x,new_y) == 1 or new_x<0 or new_x>=w or new_y<0 or new_y>=h then
 		 sfx(4)
 			return
@@ -307,12 +330,13 @@ function _update_play(dt)
 		xy_csr[2]=new_y
 		xy_corner_1={xy_csr[1],xy_csr[2]}
 		xy_corner_2={xy_csr[1],xy_csr[2]}
-		if (x) mode = 1;sfx(7)
+		if (x or lb_btnp) mode = 1;sfx(7)
 	elseif mode==1 then
-	 local new_x=xy_corner_2[1]
-		local new_y=xy_corner_2[2]
-	 new_x+=(r and 1 or l and -1 or 0)
-	 new_y+=(d and 1 or u and -1 or 0)
+		new_x=xy_corner_2[1]
+		new_y=xy_corner_2[2]
+		new_x+=(r and 1 or l and -1 or 0)
+		new_y+=(d and 1 or u and -1 or 0)
+		set_new_xy_from_mouse()
 		new_xy_csr={min(xy_corner_1[1], new_x), min(xy_corner_1[2], new_y)}
 		new_wh_csr={abs(xy_corner_1[1]-new_x)+1, abs(xy_corner_1[2]-new_y)+1}
 		for ix=new_xy_csr[1],new_xy_csr[1]+new_wh_csr[1]-1 do
@@ -334,7 +358,7 @@ function _update_play(dt)
 		xy_csr=new_xy_csr
 		wh_csr=new_wh_csr
 		xy_corner_2={new_x, new_y}
-		if x then
+		if x or lb_btnp then
 			sfx(7)
 		 mode = 2
 			mv_csr={xy_csr[1],xy_csr[2]}
@@ -380,7 +404,7 @@ function _update_play(dt)
 				memcpy(0x2020+_y*128,0x2040+_y*128,d[2])
 			end
 		end
-		if x then
+		if x or lb_btnp then
 		 if mv_rot==0 and mv_csr[1]==xy_csr[1] and mv_csr[2]==xy_csr[2] then
 				--aborted
 				sfx(1)
@@ -593,7 +617,7 @@ function _draw()
 	palt(14,true)
 	palt(0,false)
 	camera()
-	if (time_since_mouse_move<150) spr(51,mouse_x,mouse_y)
+	if (mouse_active) spr(51,mouse_x,mouse_y)
 	palt(14,false)
 	palt(0,true)
 
